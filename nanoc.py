@@ -2,21 +2,25 @@ from lark import Lark
 
 cpt = 0
 g = Lark("""
+TYPE: "long"
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/|"0" 
-OPBIN: /[+\-*\/>]/
-liste_var:                            -> vide
-    | IDENTIFIER ("," IDENTIFIER)*    -> vars
-expression: IDENTIFIER            -> var
-    | expression OPBIN expression -> opbin
-    | NUMBER                      -> number
-commande: commande (";" commande)*   -> sequence
-    | "while" "(" expression ")" "{" commande "}" -> while
-    | IDENTIFIER "=" expression              -> affectation
+OPBIN: /[+\\-*\\/]/
+declaration: TYPE IDENTIFIER
+liste_var:                                                       -> vide
+| declaration ("," declaration)*                    -> vars
+expression: IDENTIFIER                               -> var
+| expression OPBIN expression                   -> opbin
+| NUMBER                                                     -> number
+commande: commande (";" commande)*  -> sequence
+| "while" "(" expression ")" "{" commande "}" -> while
+| IDENTIFIER "=" expression                        -> affectation
+| declaration                                                  -> declaration
+| declaration "=" expression                         -> declarationpuisinitialisation 
 |"if" "(" expression ")" "{" commande "}" ("else" "{" commande "}")? -> ite
-| "printf" "(" expression ")"                -> print
-| "skip"                                  -> skip
-program:"main" "(" liste_var ")" "{"commande"return" "("expression")" "}"
+| "printf" "(" expression ")"                            -> print
+| "skip"                                                            -> skip
+program: TYPE "main" "(" liste_var ")" "{" commande "return" "("expression")" "}"
 %import common.WS
 %ignore WS
 """, start='program')
@@ -73,7 +77,6 @@ end{idx}: nop
         tail = c.children[1]
         return f"{asm_commande(d)}\n {asm_commande(tail)}"
 
-
 def asm_program(p):
     with open("moule.asm") as f:
         prog_asm = f.read()
@@ -94,17 +97,31 @@ mov [{c.value}], rax
     prog_asm = prog_asm.replace("COMMANDE", asm_c)
     return prog_asm    
 
+
+
+def pp_declaration(d):
+    type = d.children[0]
+    var = d.children[1]
+    return f"{type.value} {var.value}"
+
 def pp_expression(e):
     if e.data in ("var","number"): return f"{e.children[0].value}"
     e_left = e.children[0]
     e_op = e.children[1]
     e_right = e.children[2]
     return f"{pp_expression(e_left)} {e_op.value} {pp_expression(e_right)}"
+
 def pp_commande(c):
     if c.data == "affectation": 
         var = c.children[0]
         exp = c.children[1]
         return f"{var.value} = {pp_expression(exp)}"
+    if c.data == "declaration":
+        return pp_declaration(c.children[0])
+    if c.data == "declarationpuisinitialisation":
+        decla = c.children[0]
+        exp = c.children[1]
+        return f"{pp_declaration(decla)} = {pp_expression(exp)}"
     if c.data == "skip": return "skip"
     if c.data == "print": return f"printf({pp_expression(c.children[0])})"
     if c.data == "while":
@@ -115,12 +132,15 @@ def pp_commande(c):
         d = c.children[0]
         tail = c.children[1]
         return f"{pp_commande(d)} ; {pp_commande(tail)}"
+
+
+
 if __name__ == "__main__":
     with open("simple.c") as f:
         src = f.read()
     ast = g.parse(src)
-    #print(pp_commande(ast))
-    print(asm_program(ast))
+    print(pp_commande(ast.children[2]))
+    #print(asm_program(ast))
     #print(pp_commande(ast))
 #print(ast.children)
 #print(ast.children[0].type)
