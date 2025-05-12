@@ -17,10 +17,10 @@ commande: commande (";" commande)*   -> sequence
     | "printf" "(" expression ")"                -> print
     | "skip"                                  -> skip
 program:"main" "(" liste_var ")" "{"commande"return" "("expression")" "}"
-struct:"struct" IDENTIFIER "{""}"
+struct:"struct" IDENTIFIER "{"IDENTIFIER (";" IDENTIFIER)* "}"
 %import common.WS
 %ignore WS
-""", start='program')
+""", start='struct')
 
 ###############################################################################################
             #ASM

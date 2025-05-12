@@ -1,0 +1,1 @@
+struct testStruct { arg1; arg2; func1}
