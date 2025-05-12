@@ -13,13 +13,18 @@ expression: IDENTIFIER            -> var
 commande: commande (";" commande)*   -> sequence
     | "while" "(" expression ")" "{" commande "}" -> while
     | IDENTIFIER "=" expression              -> affectation
-|"if" "(" expression ")" "{" commande "}" ("else" "{" commande "}")? -> ite
-| "printf" "(" expression ")"                -> print
-| "skip"                                  -> skip
+    | "if" "(" expression ")" "{" commande "}" ("else" "{" commande "}")? -> ite
+    | "printf" "(" expression ")"                -> print
+    | "skip"                                  -> skip
 program:"main" "(" liste_var ")" "{"commande"return" "("expression")" "}"
+struct:"struct" IDENTIFIER "{""}"
 %import common.WS
 %ignore WS
 """, start='program')
+
+###############################################################################################
+            #ASM
+###############################################################################################
 
 def get_vars_expression(e):
     pass
@@ -28,6 +33,8 @@ def get_vars_commande(c):
     pass
 
 op2asm = {'+' : 'add rax, rbx', '-': 'sub rax, rbx'}
+
+
 def asm_expression(e):
     if e.data == "var": return f"mov rax, [{e.children[0].value}]"
     if e.data == "number": return f"mov rax, {e.children[0].value}"
@@ -42,6 +49,7 @@ push rax
 mov rbx, rax
 pop rax
 {op2asm[e_op.value]}"""
+
 
 def asm_commande(c):
     global cpt
@@ -94,6 +102,10 @@ mov [{c.value}], rax
     prog_asm = prog_asm.replace("COMMANDE", asm_c)
     return prog_asm    
 
+###############################################################################################
+            #Pretty printer
+###############################################################################################
+
 def pp_expression(e):
     if e.data in ("var","number"): return f"{e.children[0].value}"
     e_left = e.children[0]
@@ -115,6 +127,11 @@ def pp_commande(c):
         d = c.children[0]
         tail = c.children[1]
         return f"{pp_commande(d)} ; {pp_commande(tail)}"
+    
+###############################################################################################
+            #Main
+###############################################################################################
+
 if __name__ == "__main__":
     with open("simple.c") as f:
         src = f.read()
