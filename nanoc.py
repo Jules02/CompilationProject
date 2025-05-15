@@ -12,14 +12,14 @@ expression: IDENTIFIER                                                      -> v
     | NUMBER                                                                -> number
 commande: IDENTIFIER "=" expression ";"                                     -> affectation
     | "while" "(" expression ")" "{" bloc "}"                               -> while
-    | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?   -> ite
+    | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?           -> ite
     | "printf" "(" expression ")" ";"                                       -> print
     | "skip" ";"                                                            -> skip
 bloc: (commande)*                                                           -> bloc
-program:"main" "(" liste_var ")" "{" commande "return" "("expression")" ";" "}"
+program:"main" "(" liste_var ")" "{" bloc "return" "("expression")" ";" "}"
 %import common.WS
 %ignore WS
-""", start='commande')
+""", start='program')
 
 
 ###############################################################################################
@@ -102,6 +102,7 @@ mov [{c.value}], rax
     prog_asm = prog_asm.replace("COMMANDE", asm_c)
     return prog_asm    
 
+
 ###############################################################################################
             #Pretty printer
 ###############################################################################################
@@ -123,7 +124,7 @@ def pp_commande(c, indent=0):
     if c.data == "skip":
         return f"{tab}skip;"
     if c.data == "print":
-        return f"{tab}printf({pp_expression(c.children[0])});"
+        return f"{tab}printf ( {pp_expression(c.children[0])} );"
     if c.data == "while":
         exp = c.children[0]
         body = c.children[1]
@@ -152,8 +153,24 @@ def pp_bloc(b, indent=0):
         str_commandes += pp_commande(com, indent) + "\n"
     return str_commandes
 
+def pp_programme(p, indent=0):
+    tab = "    " * indent  # 4 espaces par niveau d'indentation
+    args = p.children[0]
+    com = p.children[1]
+    exp = p.children[2]
+    str_args = ""
+    if args.data != "vide":
+        for arg in args.children[:-1]:
+            str_args += arg.value + ", "
+        str_args += args.children[-1] # évite l'ajout d'une virgule après le dernier argument
+    return (
+        f"main ( {str_args} ) {{\n"
+        f"{pp_bloc(com, indent+1)}"
+        f"{tab}    return ( {pp_expression(exp)} );\n"
+        f"}}"
+    )
 
-    
+
 ###############################################################################################
             #Main
 ###############################################################################################
@@ -164,7 +181,7 @@ if __name__ == "__main__":
     print(src)
     ast = g.parse(src)
     print(ast)
-    print(pp_commande(ast))
+    print(pp_programme(ast))
     #print(asm_program(ast))
     #print(ast.children[0].type)
     #print(ast.children[0].value)
