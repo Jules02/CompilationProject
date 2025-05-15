@@ -107,11 +107,11 @@ def pp_commande(c, indent=0):
     if c.data == "affectation": 
         var = c.children[0]
         exp = c.children[1]
-        return f"{tab}{var.value} = {pp_expression(exp)}"
+        return f"{tab}{var.value} = {pp_expression(exp)};"
     if c.data == "skip":
-        return f"{tab}skip"
+        return f"{tab}skip;"
     if c.data == "print":
-        return f"{tab}printf({pp_expression(c.children[0])})"
+        return f"{tab}printf({pp_expression(c.children[0])});"
     if c.data == "while":
         exp = c.children[0]
         body = c.children[1]
@@ -137,7 +137,7 @@ def pp_commande(c, indent=0):
 def pp_bloc(b, indent=0):
     str_commandes = ""
     for com in b.children:
-        str_commandes += pp_commande(com, indent) + ";\n"
+        str_commandes += pp_commande(com, indent) + "\n"
     return str_commandes
 
 if __name__ == "__main__":
