@@ -8,7 +8,7 @@ g = Lark("""
 TYPE: "long"
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/|"0" 
-OPBIN: /[+\\-*\\/]/
+OPBIN: /[+\\-*\\/\\>]/
 declaration: TYPE IDENTIFIER
 liste_var:                                                                  -> vide
     | declaration ("," declaration)*                                        -> vars
@@ -16,8 +16,8 @@ expression: IDENTIFIER                                                      -> v
     | expression OPBIN expression                                           -> opbin
     | NUMBER                                                                -> number
 commande: IDENTIFIER "=" expression ";"                                    -> affectation
-    | declaration                                                  -> declaration
-    | declaration "=" expression                         -> declarationpuisinitialisation 
+    | declaration ";"                                                  -> declaration
+    | declaration "=" expression ";"                        -> declarationpuisinitialisation 
     | "while" "(" expression ")" "{" bloc "}"                               -> while
     | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?           -> ite
     | "printf" "(" expression ")" ";"                                       -> print
@@ -137,7 +137,7 @@ def pp_commande(c, indent=0):
         exp = c.children[1]
         return f"{tab}{var.value} = {pp_expression(exp)};"
     if c.data == "declaration":
-        return tab + pp_declaration(c.children[0])
+        return tab + pp_declaration(c.children[0]) + ";"
     if c.data == "declarationpuisinitialisation":
         decla = c.children[0]
         exp = c.children[1]
@@ -176,16 +176,17 @@ def pp_bloc(b, indent=0):
 
 def pp_programme(p, indent=0):
     tab = "    " * indent  # 4 espaces par niveau d'indentation
-    args = p.children[0]
-    com = p.children[1]
-    exp = p.children[2]
+    type = p.children[0]
+    args = p.children[1]
+    com = p.children[2]
+    exp = p.children[3]
     str_args = ""
     if args.data != "vide":
         for arg in args.children[:-1]:
-            str_args += arg.value + ", "
-        str_args += args.children[-1] # évite l'ajout d'une virgule après le dernier argument
+            str_args += pp_declaration(arg) + ", "
+        str_args += pp_declaration(args.children[-1]) # évite l'ajout d'une virgule après le dernier argument
     return (
-        f"main ( {str_args} ) {{\n"
+        f"{type} main ( {str_args} ) {{\n"
         f"{pp_bloc(com, indent+1)}"
         f"{tab}    return ( {pp_expression(exp)} );\n"
         f"}}"
@@ -199,9 +200,7 @@ def pp_programme(p, indent=0):
 if __name__ == "__main__":
     with open("simple.c") as f:
         src = f.read()
-    print(src)
     ast = g.parse(src)
-    print(ast)
     print(pp_programme(ast))
     #print(asm_program(ast))
     #print(ast.children[0].type)
