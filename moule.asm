@@ -1,4 +1,4 @@
-extern printf, atoi
+extern printf, atoi, atof
 
 section .data
 
@@ -17,10 +17,6 @@ mov [argv], rsi
 INIT_VARS
 COMMANDE
 RETOUR
-mov rdi, fmt_int
-mov rsi, rax
-xor rax, rax
-call printf
 
 pop rbp
 ret

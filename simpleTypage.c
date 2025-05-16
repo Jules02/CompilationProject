@@ -1,9 +1,4 @@
-long main(long X, long Y){
-    while (X) {
-        long Z = 3;
-        long T;
-        X = Y + 1;
-        X = X - 1
-    }
-    return (X)
+double main(long X, double Y){
+    Y = Y + (double)X;
+    return (Y);
 }
