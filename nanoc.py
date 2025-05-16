@@ -10,23 +10,28 @@ IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/|"0" 
 OPBIN: /[+\\-*\\/]/
 declaration: TYPE IDENTIFIER
-liste_var:                                                       -> vide
-| declaration ("," declaration)*                    -> vars
-expression: IDENTIFIER                               -> var
-| expression OPBIN expression                   -> opbin
-| NUMBER                                                     -> number
-commande: commande (";" commande)*  -> sequence
-| "while" "(" expression ")" "{" commande "}" -> while
-| IDENTIFIER "=" expression                        -> affectation
-| declaration                                                  -> declaration
-| declaration "=" expression                         -> declarationpuisinitialisation 
-|"if" "(" expression ")" "{" commande "}" ("else" "{" commande "}")? -> ite
-| "printf" "(" expression ")"                            -> print
-| "skip"                                                            -> skip
-program: TYPE "main" "(" liste_var ")" "{" commande "return" "("expression")" "}"
+liste_var:                                                                  -> vide
+    | declaration ("," declaration)*                                        -> vars
+expression: IDENTIFIER                                                      -> var
+    | expression OPBIN expression                                           -> opbin
+    | NUMBER                                                                -> number
+commande: IDENTIFIER "=" expression ";"                                    -> affectation
+    | declaration                                                  -> declaration
+    | declaration "=" expression                         -> declarationpuisinitialisation 
+    | "while" "(" expression ")" "{" bloc "}"                               -> while
+    | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?           -> ite
+    | "printf" "(" expression ")" ";"                                       -> print
+    | "skip" ";"                                                            -> skip
+bloc: (commande)*                                                           -> bloc
+program: TYPE "main" "(" liste_var ")" "{" bloc "return" "("expression")" ";" "}"
 %import common.WS
 %ignore WS
 """, start='program')
+
+
+###############################################################################################
+            #ASM
+###############################################################################################
 
 def get_vars_expression(e):
     pass
@@ -35,6 +40,8 @@ def get_vars_commande(c):
     pass
 
 op2asm = {'+' : 'add rax, rbx', '-': 'sub rax, rbx'}
+
+
 def asm_expression(e):
     if e.data == "var": return f"mov rax, [{e.children[0].value}]"
     if e.data == "number": return f"mov rax, {e.children[0].value}"
@@ -49,6 +56,7 @@ push rax
 mov rbx, rax
 pop rax
 {op2asm[e_op.value]}"""
+
 
 def asm_commande(c):
     global cpt
@@ -80,6 +88,7 @@ end{idx}: nop
         tail = c.children[1]
         return f"{asm_commande(d)}\n {asm_commande(tail)}"
 
+
 def asm_program(p):
     with open("moule.asm") as f:
         prog_asm = f.read()
@@ -104,7 +113,9 @@ mov [{var}], rax
     prog_asm = prog_asm.replace("COMMANDE", asm_c)
     return prog_asm    
 
-
+###############################################################################################
+            #Pretty printer
+###############################################################################################
 
 def pp_declaration(d):
     type = d.children[0]
@@ -112,43 +123,86 @@ def pp_declaration(d):
     return f"{type.value} {var.value}"
 
 def pp_expression(e):
-    if e.data in ("var","number"): return f"{e.children[0].value}"
+    if e.data in ("var", "number"):
+        return f"{e.children[0].value}"
     e_left = e.children[0]
     e_op = e.children[1]
     e_right = e.children[2]
     return f"{pp_expression(e_left)} {e_op.value} {pp_expression(e_right)}"
 
-def pp_commande(c):
+def pp_commande(c, indent=0):
+    tab = "    " * indent  # 4 espaces par niveau d'indentation
     if c.data == "affectation": 
         var = c.children[0]
         exp = c.children[1]
-        return f"{var.value} = {pp_expression(exp)}"
+        return f"{tab}{var.value} = {pp_expression(exp)};"
     if c.data == "declaration":
-        return pp_declaration(c.children[0])
+        return tab + pp_declaration(c.children[0])
     if c.data == "declarationpuisinitialisation":
         decla = c.children[0]
         exp = c.children[1]
-        return f"{pp_declaration(decla)} = {pp_expression(exp)}"
-    if c.data == "skip": return "skip"
-    if c.data == "print": return f"printf({pp_expression(c.children[0])})"
+        return f"{tab}{pp_declaration(decla)} = {pp_expression(exp)};"
+    if c.data == "skip":
+        return f"{tab}skip;"
+    if c.data == "print":
+        return f"{tab}printf ( {pp_expression(c.children[0])} );"
     if c.data == "while":
         exp = c.children[0]
         body = c.children[1]
-        return f"while ({pp_expression(exp)}) {{{pp_commande(body)}}}"
-    if c.data == "sequence":
-        d = c.children[0]
-        tail = c.children[1]
-        return f"{pp_commande(d)} ; {pp_commande(tail)}"
+        return f"{tab}while ( {pp_expression(exp)} ) {{\n{pp_bloc(body, indent + 1)}{tab}}}"
+    if c.data == "ite":
+        exp = c.children[0]
+        com = c.children[1]
+        if len(c.children) == 3:
+            com_else = c.children[2]
+            return (
+                f"{tab}if ( {pp_expression(exp)} ) {{\n"
+                f"{pp_bloc(com, indent + 1)}"
+                f"{tab}}} else {{\n"
+                f"{pp_bloc(com_else, indent + 1)}"
+                f"{tab}}}"
+            )
+        return (
+            f"{tab}if ( {pp_expression(exp)} ) {{\n"
+            f"{pp_bloc(com, indent + 1)}"
+            f"{tab}}}"
+        )
+
+def pp_bloc(b, indent=0):
+    str_commandes = ""
+    for com in b.children:
+        str_commandes += pp_commande(com, indent) + "\n"
+    return str_commandes
+
+def pp_programme(p, indent=0):
+    tab = "    " * indent  # 4 espaces par niveau d'indentation
+    args = p.children[0]
+    com = p.children[1]
+    exp = p.children[2]
+    str_args = ""
+    if args.data != "vide":
+        for arg in args.children[:-1]:
+            str_args += arg.value + ", "
+        str_args += args.children[-1] # évite l'ajout d'une virgule après le dernier argument
+    return (
+        f"main ( {str_args} ) {{\n"
+        f"{pp_bloc(com, indent+1)}"
+        f"{tab}    return ( {pp_expression(exp)} );\n"
+        f"}}"
+    )
 
 
+###############################################################################################
+            #Main
+###############################################################################################
 
 if __name__ == "__main__":
-    with open("simpleTypage.c") as f:
+    with open("simple.c") as f:
         src = f.read()
+    print(src)
     ast = g.parse(src)
-    print(asm_program(ast))
-    print(symboltable.table)
-    #print(pp_commande(ast))
-#print(ast.children)
-#print(ast.children[0].type)
-#print(ast.children[0].value)
+    print(ast)
+    print(pp_programme(ast))
+    #print(asm_program(ast))
+    #print(ast.children[0].type)
+    #print(ast.children[0].value)
