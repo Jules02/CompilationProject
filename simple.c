@@ -1,7 +1,10 @@
-main(x, y, result) {
-  x = 3;
-  y = 3.0e-5;
-  result = x + y;
-  printf(result)
-return (result)
+long main(long X, long Y, long zebi){
+    while(3+X){
+        long Z;
+        long T = 3+X;
+        printf(Y);
+        zebi=X+4;
+    }
+    long zin;
+    return(X);
 }
