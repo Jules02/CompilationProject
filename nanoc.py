@@ -1,4 +1,7 @@
 from lark import Lark
+from symboltable import *
+
+symboltable = SymbolTable()
 
 cpt = 0
 g = Lark("""
@@ -80,20 +83,24 @@ end{idx}: nop
 def asm_program(p):
     with open("moule.asm") as f:
         prog_asm = f.read()
-    ret = asm_expression(p.children[2])
+    ret = asm_expression(p.children[3])
     prog_asm = prog_asm.replace("RETOUR", ret)
-    init_vars = ""
     decl_vars = ""
-    for i, c in enumerate(p.children[0].children):
+    init_vars = ""
+    for i, c in enumerate(p.children[1].children):
+        type = c.children[0]
+        var = c.children[1]
+        decl_vars += f"{var}: dq 0\n"
+        symboltable.declare(var, type)
         init_vars += f"""mov rbx, [argv]
 mov rdi, [rbx + {(i+1)*8}]
 call atoi
-mov [{c.value}], rax
+mov [{var}], rax
 """
-        decl_vars += f"{c.value}: dq 0\n"
-    prog_asm = prog_asm.replace("INIT_VARS", init_vars)
+        symboltable.initialize(var)
     prog_asm = prog_asm.replace("DECL_VARS", decl_vars)
-    asm_c = asm_commande(p.children[1])
+    prog_asm = prog_asm.replace("INIT_VARS", init_vars)
+    asm_c = asm_commande(p.children[2])
     prog_asm = prog_asm.replace("COMMANDE", asm_c)
     return prog_asm    
 
@@ -127,7 +134,7 @@ def pp_commande(c):
     if c.data == "while":
         exp = c.children[0]
         body = c.children[1]
-        return f"while ( {pp_expression(exp)} ) {{{pp_commande(body)}}}"
+        return f"while ({pp_expression(exp)}) {{{pp_commande(body)}}}"
     if c.data == "sequence":
         d = c.children[0]
         tail = c.children[1]
@@ -136,11 +143,11 @@ def pp_commande(c):
 
 
 if __name__ == "__main__":
-    with open("simple.c") as f:
+    with open("simpleTypage.c") as f:
         src = f.read()
     ast = g.parse(src)
-    print(pp_commande(ast.children[2]))
-    #print(asm_program(ast))
+    print(asm_program(ast))
+    print(symboltable.table)
     #print(pp_commande(ast))
 #print(ast.children)
 #print(ast.children[0].type)
