@@ -74,10 +74,10 @@ def asm_expression(e):
             var_type = symboltable.get_type(var_name)
             if var_type == "double":
                 return f"movsd xmm0, [{var_name}]", "double"
-            return f"mov rax, [{var_name}]", "int"
+            return f"mov rax, [{var_name}]", "long"
         raise ValueError(f"Variable '{var_name}' is not declared.")
     if e.data == "number": 
-        return f"mov rax, {e.children[0].value}", "int"
+        return f"mov rax, {e.children[0].value}", "long"
     if e.data == "double":
         val = e.children[0].value
         try:
@@ -88,30 +88,30 @@ def asm_expression(e):
             double_constants[const_name] = hexval
             return f"movsd xmm0, [{const_name}]", "double"
         except ValueError:
-            return "mov rax, 0", "int"
+            return "mov rax, 0", "long"
     if e.data == "cast_double":
         code, typ = asm_expression(e.children[0])
-        if typ == "int":
+        if typ == "long":
             return f"{code}\ncvtsi2sd xmm0, rax", "double"
         return f"{code}", "double"
     if e.data == "opbin":
         left_code, left_type = asm_expression(e.children[0])
         op = e.children[1]
         right_code, right_type = asm_expression(e.children[2])
-        if left_type == "int" and right_type == "int":
+        if left_type == "long" and right_type == "long":
             return f"""{left_code}
 push rax
 {right_code}
 mov rbx, rax
 pop rax
-{op2asm[op]}""", "int"
+{op2asm[op]}""", "long"
         code = ""
-        if left_type == "int":
+        if left_type == "long":
             code += f"{left_code}\ncvtsi2sd xmm1, rax\n"
         else:
             code += f"{left_code}\nmovsd xmm1, xmm0\n"
 
-        if right_type == "int":
+        if right_type == "long":
             code += f"{right_code}\ncvtsi2sd xmm0, rax\n"
         else:
             code += f"{right_code}\n"
@@ -255,8 +255,9 @@ mov [{var.value}], rax
     ret_type = p.children[0].value
     code, typ = asm_expression(p.children[3])
     
+    # Handle type conversion when function return type differs from the expression type
     if ret_type == "double":
-        if typ == "int":
+        if typ == "long":
             code = f"{code}\ncvtsi2sd xmm0, rax"
         code += """
 mov rdi, fmt_double
