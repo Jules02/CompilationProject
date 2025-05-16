@@ -9,15 +9,15 @@ TYPE: "long"
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/|"0" 
 OPBIN: /[+\\-*\\/\\>]/
-declaration: TYPE IDENTIFIER
+declaration: TYPE IDENTIFIER                                -> declaration                   
 liste_var:                                                                  -> vide
     | declaration ("," declaration)*                                        -> vars
 expression: IDENTIFIER                                                      -> var
     | expression OPBIN expression                                           -> opbin
     | NUMBER                                                                -> number
 commande: IDENTIFIER "=" expression ";"                                    -> affectation
-    | declaration ";"                                                  -> declaration
-    | declaration "=" expression ";"                        -> declarationpuisinitialisation 
+    | declaration ";"                                                  -> decl_cmd
+    | declaration "=" expression ";"                        -> declpuisinit_cmd
     | "while" "(" expression ")" "{" bloc "}"                               -> while
     | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?           -> ite
     | "printf" "(" expression ")" ";"                                       -> print
@@ -39,6 +39,25 @@ def get_vars_expression(e):
 def get_vars_commande(c):
     pass
 
+def get_declarations(c):
+    # Cette fonction récursive permet de parcourir le corps du programme à la recherche de déclarations de variables
+    if c.data == "bloc":
+        d = []
+        for child in c.children:
+            d.extend(get_declarations(child))
+        return d
+    if c.data == "decl_cmd" or c.data == "declpuisinit_cmd":
+        return [c.children[0]]
+    if c.data == "while":
+        return get_declarations(c.children[1])
+    if c.data == "ite":
+        d = get_declarations(c.children[1])
+        if len(c.children) == 3:
+            d.extend(get_declarations(c.children[2]))
+        return d
+    return []
+
+
 op2asm = {'+' : 'add rax, rbx', '-': 'sub rax, rbx'}
 
 
@@ -57,6 +76,11 @@ mov rbx, rax
 pop rax
 {op2asm[e_op.value]}"""
 
+def asm_bloc(b):
+    seq = ""
+    for c in b.children:
+        seq += asm_commande(c) + "\n"
+    return seq
 
 def asm_commande(c):
     global cpt
@@ -64,13 +88,14 @@ def asm_commande(c):
         var = c.children[0]
         exp = c.children[1]
         return f"{asm_expression(exp)}\nmov [{var.value}], rax"
-    if c.data == "skip": return "nop"
-    if c.data == "print": return f"""{asm_expression(c.children[0])}
-mov rsi, fmt
-mov rdi, rax
-xor rax, rax
-call printf
-"""
+    if c.data == "decl_cmd":
+        return ""
+    if c.data == "declpuisinit_cmd":
+        type = c.children[0].children[0]
+        var = c.children[0].children[1]
+        exp = c.children[1]
+        symboltable.initialize(var.value)
+        return f"{asm_expression(exp)}\nmov [{var.value}], rax"
     if c.data == "while":
         exp = c.children[0]
         body = c.children[1]
@@ -79,39 +104,60 @@ call printf
         return f"""loop{idx}:{asm_expression(exp)}
 cmp rax, 0
 jz end{idx}
-{asm_commande(body)}
+{asm_bloc(body)}
 jmp loop{idx}
 end{idx}: nop
 """
-    if c.data == "sequence":
-        d = c.children[0]
-        tail = c.children[1]
-        return f"{asm_commande(d)}\n {asm_commande(tail)}"
+    if c.data == "ite":
+        return "TODO"
+    if c.data == "print": return f"""{asm_expression(c.children[0])}
+mov rsi, fmt
+mov rdi, rax
+xor rax, rax
+call printf
+"""
+    if c.data == "skip": return "nop"
 
 
 def asm_program(p):
     with open("moule.asm") as f:
         prog_asm = f.read()
+
+    # Retour du programme
+    ret_type = p.children[0]
     ret = asm_expression(p.children[3])
     prog_asm = prog_asm.replace("RETOUR", ret)
+
+    # Déclaration et initialisation des variables passées en argument
     decl_vars = ""
     init_vars = ""
     for i, c in enumerate(p.children[1].children):
         type = c.children[0]
         var = c.children[1]
         decl_vars += f"{var}: dq 0\n"
-        symboltable.declare(var, type)
+        symboltable.declare(var.value, type.value)
         init_vars += f"""mov rbx, [argv]
 mov rdi, [rbx + {(i+1)*8}]
 call atoi
 mov [{var}], rax
 """
-        symboltable.initialize(var)
+        symboltable.initialize(var.value)
+
+    # Déclaration des variables déclarées dans le corps du programme
+    for d in get_declarations(p.children[2]):
+        type = d.children[0]
+        var = d.children[1]
+        decl_vars += f"{var}: dq 0\n"
+        symboltable.declare(var.value, type.value)
+
     prog_asm = prog_asm.replace("DECL_VARS", decl_vars)
     prog_asm = prog_asm.replace("INIT_VARS", init_vars)
-    asm_c = asm_commande(p.children[2])
-    prog_asm = prog_asm.replace("COMMANDE", asm_c)
-    return prog_asm    
+
+    # Corps du programme
+    asm_b = asm_bloc(p.children[2])
+    prog_asm = prog_asm.replace("COMMANDE", asm_b)
+
+    return prog_asm
 
 ###############################################################################################
             #Pretty printer
@@ -136,9 +182,9 @@ def pp_commande(c, indent=0):
         var = c.children[0]
         exp = c.children[1]
         return f"{tab}{var.value} = {pp_expression(exp)};"
-    if c.data == "declaration":
+    if c.data == "decl_cmd":
         return tab + pp_declaration(c.children[0]) + ";"
-    if c.data == "declarationpuisinitialisation":
+    if c.data == "declpuisinit_cmd":
         decla = c.children[0]
         exp = c.children[1]
         return f"{tab}{pp_declaration(decla)} = {pp_expression(exp)};"
@@ -201,7 +247,10 @@ if __name__ == "__main__":
     with open("simple.c") as f:
         src = f.read()
     ast = g.parse(src)
-    print(pp_programme(ast))
+    #print(pp_programme(ast))
+    print(asm_program(ast))
+
+    print(symboltable.table)
     #print(asm_program(ast))
     #print(ast.children[0].type)
     #print(ast.children[0].value)
