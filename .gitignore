@@ -1,1 +1,6 @@
+__pycache__
+/.idea/
 .DS_Store
+simple*
+simpleTypage.o
+simpleTypage

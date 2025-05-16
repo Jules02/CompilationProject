@@ -1,11 +1,10 @@
-main(X,Y,zebi){
-    if (zebi>X){
-        while(3*4){
-            printf(Y);
-            zebi=X+4;
-        }
-    } else {
-        skip;
+long main(long X, long Y, long zebi){
+    while(3+X){
+        long Z;
+        long T = 3+X;
+        printf(Y);
+        zebi=X+4;
     }
+    long zin;
     return(X);
 }
