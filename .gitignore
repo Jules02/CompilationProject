@@ -1,6 +1,6 @@
 __pycache__
 /.idea/
 .DS_Store
-projet/simple*
-projet/simpleTypage.o
-projet/simpleTypage
+simple*
+simpleTypage.o
+simpleTypage
