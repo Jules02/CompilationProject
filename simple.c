@@ -1,13 +1,7 @@
-main() {
-  x = 3.14;
+main(x, y, result) {
+  x = 3;
   y = 3.0e-5;
-  z = 42;
-  
-  f = (float)z;
-  i = (double)x;
-  
   result = x + y;
-  
   printf(result)
-return(result)  
+return (result)
 }
