@@ -8,7 +8,7 @@ cpt = 0
 double_constants = {}
 
 g = Lark("""
-TYPE: "long" | "double"
+TYPE: "long" | "double" | "struct" IDENTIFIER
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/|"0" 
 OPBIN: /[+\\-*\\/\\>]/
@@ -24,6 +24,7 @@ expression: IDENTIFIER                                                      -> v
 commande: IDENTIFIER "=" expression ";"                                     -> affectation
     | declaration ";"                                                       -> decl_cmd
     | declaration "=" expression ";"                                        -> declpuisinit_cmd
+    | "struct" IDENTIFIER "{" declaration ";" (declaration ";")* "}" ";"    -> struct
     | "while" "(" expression ")" "{" bloc "}"                               -> while
     | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?           -> ite
     | "printf" "(" expression ")" ";"                                       -> print
@@ -313,6 +314,14 @@ def pp_commande(c, indent=0):
         decla = c.children[0]
         exp = c.children[1]
         return f"{tab}{pp_declaration(decla)} = {pp_expression(exp)};"
+    if c.data == "struct":
+        name = c.children[0].value
+        decls = c.children[1:]
+        str_declarations = ""
+        for decl in decls[:-1]:
+            str_declarations += 2*tab + pp_declaration(decl) + ";\n"
+        str_declarations += 2*tab + pp_declaration(decls[-1]) + ";"
+        return f"{tab}struct {name} {{\n{str_declarations}\n{tab}}};"
     if c.data == "skip":
         return f"{tab}skip;"
     if c.data == "print":
@@ -353,10 +362,10 @@ def pp_programme(p, indent=0):
 ###############################################################################################
 
 if __name__ == "__main__":
-    with open("simpleTypage.c", encoding="utf-8") as f:
+    with open("simpleStruct.c", encoding="utf-8") as f:
         src = f.read()
     ast = g.parse(src)
-    print(asm_program(ast))
+    print(pp_programme(ast))
 
     # print(symboltable.table)
     #print(asm_program(ast))
