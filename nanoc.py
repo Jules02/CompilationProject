@@ -24,7 +24,8 @@ expression: IDENTIFIER                                                      -> v
 commande: IDENTIFIER "=" expression ";"                                     -> affectation
     | declaration ";"                                                       -> decl_cmd
     | declaration "=" expression ";"                                        -> declpuisinit_cmd
-    | "struct" IDENTIFIER "{" declaration ";" (declaration ";")* "}" ";"    -> struct
+    | "struct" IDENTIFIER "{" declaration ";" (declaration ";")* "}" ";"    -> struct_def
+    | "struct" IDENTIFIER IDENTIFIER ("{" expression ("," expression)* "}")? ";"     -> struct_init_seq
     | "while" "(" expression ")" "{" bloc "}"                               -> while
     | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?           -> ite
     | "printf" "(" expression ")" ";"                                       -> print
@@ -67,6 +68,7 @@ def get_declarations(c):
 
 op2asm = {'+' : 'add rax, rbx', '-': 'sub rax, rbx'}
 op2asm_double = {'+' : 'addsd xmm0, xmm1', '-': 'subsd xmm0, xmm1'}
+
 def asm_expression(e):
     global double_constants
     if e.data == "var":
@@ -213,7 +215,6 @@ call printf
 """
     if c.data == "skip": return "nop"
 
-
 def asm_program(p):
     global double_constants, cpt
     double_constants.clear()
@@ -314,14 +315,8 @@ def pp_commande(c, indent=0):
         decla = c.children[0]
         exp = c.children[1]
         return f"{tab}{pp_declaration(decla)} = {pp_expression(exp)};"
-    if c.data == "struct":
-        name = c.children[0].value
-        decls = c.children[1:]
-        str_declarations = ""
-        for decl in decls[:-1]:
-            str_declarations += 2*tab + pp_declaration(decl) + ";\n"
-        str_declarations += 2*tab + pp_declaration(decls[-1]) + ";"
-        return f"{tab}struct {name} {{\n{str_declarations}\n{tab}}};"
+    if "struct" in c.data:
+        return pp_struct(c, indent)
     if c.data == "skip":
         return f"{tab}skip;"
     if c.data == "print":
@@ -338,6 +333,29 @@ def pp_commande(c, indent=0):
             return f"{tab}if ({pp_expression(exp)}) {{\n{pp_bloc(com, indent + 1)}{tab}}} else {{\n{pp_bloc(com_else, indent + 1)}{tab}}}"
         return f"{tab}if ({pp_expression(exp)}) {{\n{pp_bloc(com, indent + 1)}{tab}}}"
 
+def pp_struct(s, indent=0):
+    tab = "    " * indent
+    if s.data == "struct_def":
+        name = s.children[0].value
+        decls = s.children[1:]
+        str_declarations = ""
+        for decl in decls[:-1]:
+            str_declarations += 2*tab + pp_declaration(decl) + ";\n"
+        str_declarations += 2*tab + pp_declaration(decls[-1]) + ";"
+        return f"{tab}struct {name} {{\n{str_declarations}\n{tab}}};"
+    if s.data == "struct_init_seq":
+        struct_name = s.children[0].value
+        entity_name = s.children[1].value
+        if len(s.children) == 2:
+            return f"{tab}struct {struct_name} {entity_name};"
+        else:
+            exps = s.children[2:]
+            str_expressions = ""
+            for exp in exps[:-1]:
+                str_expressions += pp_expression(exp) + ", "
+            str_expressions += pp_expression(exps[-1])
+            return f"{tab}struct {struct_name} {entity_name} {{{str_expressions}}};"
+        
 def pp_bloc(b, indent=0):
     str_commandes = ""
     for com in b.children:
