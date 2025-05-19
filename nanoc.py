@@ -8,30 +8,32 @@ cpt = 0
 double_constants = {}
 
 g = Lark("""
-TYPE: "long" | "double" | "struct" IDENTIFIER
+TYPE: "long" | "double"
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/|"0" 
 OPBIN: /[+\\-*\\/\\>]/
 DOUBLE: /[0-9]*\\.[0-9]+([eE][+-]?[0-9]+)?/
-declaration: TYPE IDENTIFIER                                                -> declaration                   
-liste_var:                                                                  -> vide
-    | declaration ("," declaration)*                                        -> vars
-expression: IDENTIFIER                                                      -> var
-    | expression OPBIN expression                                           -> opbin
-    | NUMBER                                                                -> number
-    | DOUBLE                                                                -> double
-    |"(" "double" ")" expression                                            -> cast_double
-commande: IDENTIFIER "=" expression ";"                                     -> affectation
-    | declaration ";"                                                       -> decl_cmd
-    | declaration "=" expression ";"                                        -> declpuisinit_cmd
-    | "struct" IDENTIFIER "{" declaration ";" (declaration ";")* "}" ";"    -> struct_def
+declaration: TYPE IDENTIFIER                                                 -> declaration
+one_struct_def: "typedef" "struct" "{" (declaration ";")+ "}" IDENTIFIER ";" -> one_struct_def
+structs_def : (one_struct_def)*                                              -> structs_def                
+liste_var:                                                                   -> vide
+    | declaration ("," declaration)*                                         -> vars
+expression: IDENTIFIER                                                       -> var
+    | expression OPBIN expression                                            -> opbin
+    | NUMBER                                                                 -> number
+    | DOUBLE                                                                 -> double
+    |"(" "double" ")" expression                                             -> cast_double
+commande: IDENTIFIER "=" expression ";"                                      -> affectation
+    | declaration ";"                                                        -> decl_cmd
+    | declaration "=" expression ";"                                         -> declpuisinit_cmd
+    | "struct" IDENTIFIER "{" (declaration ";")+ "}" ";"    -> struct
     | "struct" IDENTIFIER IDENTIFIER ("{" expression ("," expression)* "}")? ";"     -> struct_init_seq
-    | "while" "(" expression ")" "{" bloc "}"                               -> while
-    | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?           -> ite
-    | "printf" "(" expression ")" ";"                                       -> print
-    | "skip" ";"                                                            -> skip
-bloc: (commande)*                                                           -> bloc
-program: TYPE "main" "(" liste_var ")" "{" bloc "return" "("expression")" ";" "}"
+    | "while" "(" expression ")" "{" bloc "}"                                -> while
+    | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?            -> ite
+    | "printf" "(" expression ")" ";"                                        -> print
+    | "skip" ";"                                                             -> skip
+bloc: (commande)*                                                            -> bloc
+program: structs_def? TYPE "main" "(" liste_var ")" "{" bloc "return" "("expression")" ";" "}"
 %import common.WS
 %ignore WS
 """, start='program')
@@ -316,7 +318,7 @@ def pp_commande(c, indent=0):
         exp = c.children[1]
         return f"{tab}{pp_declaration(decla)} = {pp_expression(exp)};"
     if "struct" in c.data:
-        return pp_struct(c, indent)
+        return pp_struct_sanstypedef(c, indent)
     if c.data == "skip":
         return f"{tab}skip;"
     if c.data == "print":
@@ -333,9 +335,9 @@ def pp_commande(c, indent=0):
             return f"{tab}if ({pp_expression(exp)}) {{\n{pp_bloc(com, indent + 1)}{tab}}} else {{\n{pp_bloc(com_else, indent + 1)}{tab}}}"
         return f"{tab}if ({pp_expression(exp)}) {{\n{pp_bloc(com, indent + 1)}{tab}}}"
 
-def pp_struct(s, indent=0):
+def pp_struct_sanstypedef(s, indent=0):
     tab = "    " * indent
-    if s.data == "struct_def":
+    if s.data == "structs_def":
         name = s.children[0].value
         decls = s.children[1:]
         str_declarations = ""
@@ -355,24 +357,39 @@ def pp_struct(s, indent=0):
                 str_expressions += pp_expression(exp) + ", "
             str_expressions += pp_expression(exps[-1])
             return f"{tab}struct {struct_name} {entity_name} {{{str_expressions}}};"
-        
+
+def pp_struct_typedef(s):
+    tab = "    "
+    str_structs = ""
+    for struct in s.children:
+        decls = struct.children[:-1]
+        name = struct.children[-1].value
+        str_declarations = ""
+        for decl in decls[:-1]:
+            str_declarations += tab + pp_declaration(decl) + ";\n"
+        str_declarations += tab + pp_declaration(decls[-1]) + ";"
+        str_structs +=  f"typedef struct {{\n{str_declarations}\n}} {name};\n\n"
+    return str_structs
+
 def pp_bloc(b, indent=0):
     str_commandes = ""
+    print('INSIDE PP\n', b)
     for com in b.children:
         str_commandes += pp_commande(com, indent) + "\n"
     return str_commandes
 
 def pp_programme(p, indent=0):
-    type_node = p.children[0]
-    args = p.children[1]
-    bloc = p.children[2]
-    exp = p.children[3]
+    structs = p.children[0]
+    type_node = p.children[1]
+    args = p.children[2]
+    bloc = p.children[3]
+    exp = p.children[4]
     str_args = ""
     if args.data != "vide":
         for arg in args.children[:-1]:
             str_args += pp_declaration(arg) + ", "
         str_args += pp_declaration(args.children[-1])
-    return f"{type_node.value} main({str_args}) {{\n{pp_bloc(bloc, indent+1)}    return ({pp_expression(exp)});\n}}"
+    return f"{pp_struct_typedef(structs)}{type_node.value} main({str_args}) {{\n{pp_bloc(bloc, indent+1)}    return ({pp_expression(exp)});\n}}"
 
 
 ###############################################################################################
@@ -383,9 +400,10 @@ if __name__ == "__main__":
     with open("simpleStruct.c", encoding="utf-8") as f:
         src = f.read()
     ast = g.parse(src)
+    #print(ast)
+    print("\n\n")
     print(pp_programme(ast))
-
-    # print(symboltable.table)
+    #print(symboltable.table)
     #print(asm_program(ast))
     #print(ast.children[0].type)
     #print(ast.children[0].value)
