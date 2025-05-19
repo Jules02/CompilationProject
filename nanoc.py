@@ -68,6 +68,7 @@ def get_declarations(c):
 
 op2asm = {'+' : 'add rax, rbx', '-': 'sub rax, rbx'}
 op2asm_double = {'+' : 'addsd xmm0, xmm1', '-': 'subsd xmm0, xmm1'}
+
 def asm_expression(e):
     global double_constants
     if e.data == "var":
@@ -214,7 +215,6 @@ call printf
 """
     if c.data == "skip": return "nop"
 
-
 def asm_program(p):
     global double_constants, cpt
     double_constants.clear()
@@ -356,7 +356,6 @@ def pp_struct(s, indent=0):
             str_expressions += pp_expression(exps[-1])
             return f"{tab}struct {struct_name} {entity_name} {{{str_expressions}}};"
         
-
 def pp_bloc(b, indent=0):
     str_commandes = ""
     for com in b.children:
