@@ -6,6 +6,7 @@ import struct
 
 cpt = 0
 double_constants = {}
+raiseWarnings = False
 
 g = Lark("""
 TYPE: "long" | "double" | "struct" IDENTIFIER
@@ -35,17 +36,6 @@ program: TYPE "main" "(" liste_var ")" "{" bloc "return" "("expression")" ";" "}
 %ignore WS
 """, start='program')
 
-
-###############################################################################################
-            #ASM
-###############################################################################################
-
-def get_vars_expression(e):
-    pass
-
-def get_vars_commande(c):
-    pass
-
 def get_declarations(c):
     # Cette fonction récursive permet de parcourir le corps du programme à la recherche de déclarations de variables
     if c.data == "bloc":
@@ -65,8 +55,13 @@ def get_declarations(c):
     return []
 
 
+###############################################################################################
+            #ASM
+###############################################################################################
+
 op2asm = {'+' : 'add rax, rbx', '-': 'sub rax, rbx'}
 op2asm_double = {'+' : 'addsd xmm0, xmm1', '-': 'subsd xmm0, xmm1'}
+
 def asm_expression(e):
     global double_constants
     if e.data == "var":
@@ -109,14 +104,14 @@ pop rax
         code = ""
         if left_type == "long":
             code += f"{left_code}\ncvtsi2sd xmm1, rax\n"
+            if raiseWarnings: print("Implicitly converting long to double")
         else:
             code += f"{left_code}\nmovsd xmm1, xmm0\n"
-
         if right_type == "long":
             code += f"{right_code}\ncvtsi2sd xmm0, rax\n"
+            if raiseWarnings: print("Implicitly converting long to double")
         else:
             code += f"{right_code}\n"
-
         code += f"{op2asm_double[op]}"
         return code, "double"
 
@@ -139,7 +134,6 @@ def asm_commande(c):
         type_node = c.children[0].children[0]
         var = c.children[0].children[1]
         var_name = var.value
-        
         if not symboltable.is_declared(var_name):
             symboltable.declare(var_name, type_node.value)
         return ""
@@ -148,10 +142,8 @@ def asm_commande(c):
         var = c.children[0].children[1]
         exp = c.children[1]
         var_name = var.value
-        
         if not symboltable.is_declared(var_name):
             symboltable.declare(var_name, type_node.value)
-        
         code, typ = asm_expression(exp)
         symboltable.initialize(var_name)
         if type_node.value == "double":
@@ -176,7 +168,6 @@ end{idx}: nop
         idx = cpt
         cpt += 1
         code, typ = asm_expression(exp)
-        
         if len(c.children) > 2:
             body_else = c.children[2]
             return f"""{code}
@@ -213,7 +204,6 @@ call printf
 """
     if c.data == "skip": return "nop"
 
-
 def asm_program(p):
     global double_constants, cpt
     double_constants.clear()
@@ -244,12 +234,14 @@ mov [{var.value}], rax
 """
         symboltable.initialize(var.value)
 
+    # TODO: for the moment, double variables are declared as long
+
     for d in get_declarations(p.children[2]):
         type_node = d.children[0]
         var = d.children[1]
         decl_vars += f"{var.value}: dq 0\n"
         symboltable.declare(var.value, type_node.value)
-        
+
     for name, hexval in double_constants.items():
         decl_vars += f"{name}: dq {hexval}\n"
 
@@ -260,6 +252,7 @@ mov [{var.value}], rax
     if ret_type == "double":
         if typ == "long":
             code = f"{code}\ncvtsi2sd xmm0, rax"
+            if raiseWarnings: print("Implicitly converting double to long")
         code += """
 mov rdi, fmt_double
 mov rax, 1
@@ -268,6 +261,7 @@ call printf
     elif ret_type == "long":
         if typ == "double":
             code += "\ncvttsd2si rax, xmm0"
+            if raiseWarnings: print("Implicitly converting double to long")
         code += """
 mov rdi, fmt_int
 mov rsi, rax
@@ -362,10 +356,11 @@ def pp_programme(p, indent=0):
 ###############################################################################################
 
 if __name__ == "__main__":
-    with open("simpleStruct.c", encoding="utf-8") as f:
+    with open("simpleTypage.c", encoding="utf-8") as f:
         src = f.read()
+    raiseWarnings = True
     ast = g.parse(src)
-    print(pp_programme(ast))
+    print(asm_program(ast))
 
     # print(symboltable.table)
     #print(asm_program(ast))
