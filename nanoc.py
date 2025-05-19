@@ -221,9 +221,31 @@ def asm_program(p):
     with open("moule.asm", encoding="utf-8") as f:
         prog_asm = f.read()
 
+    # First pass: collect all double constants from the program
+    def collect_double_constants(node):
+        if node.data == "double":
+            val = node.children[0].value
+            try:
+                float_val = float(val)
+                binary = struct.unpack('<Q', struct.pack('<d', float_val))[0]
+                const_name = f"double_{len(double_constants)}"
+                hexval = f"0x{binary:016X} ; {val}"
+                double_constants[const_name] = hexval
+            except ValueError:
+                pass
+        for child in node.children:
+            if hasattr(child, 'children'):
+                collect_double_constants(child)
+
+    # Collect constants from the program body
+    collect_double_constants(p.children[2])
+    # Collect constants from the return expression
+    collect_double_constants(p.children[3])
+
     decl_vars = ""
     init_vars = ""
     
+    # Second pass: handle main parameters
     for i, c in enumerate(p.children[1].children):
         type_node = c.children[0]
         var = c.children[1]
@@ -243,12 +265,15 @@ mov [{var.value}], rax
 """
         symboltable.initialize(var.value)
 
+    # Third pass: collect all other declarations
     for d in get_declarations(p.children[2]):
         type_node = d.children[0]
         var = d.children[1]
-        decl_vars += f"{var.value}: dq 0\n"
-        symboltable.declare(var.value, type_node.value)
+        if not symboltable.is_declared(var.value):
+            decl_vars += f"{var.value}: dq 0\n"
+            symboltable.declare(var.value, type_node.value)
         
+    # Add double constants to .data section
     for name, hexval in double_constants.items():
         decl_vars += f"{name}: dq {hexval}\n"
 

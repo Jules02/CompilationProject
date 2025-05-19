@@ -4,6 +4,8 @@ section .data
 
 X: dq 0
 Y: dq 0
+Z: dq 0
+double_0: dq 0x3FD3333333333333 ; 3.0e-1
 
 argv: dq 0
 fmt_int:db "%d", 10, 0
@@ -24,17 +26,25 @@ mov rbx, [argv]
 mov rdi, [rbx + 16]
 call atof
 movsd [Y], xmm0
+mov rbx, [argv]
+mov rdi, [rbx + 24]
+call atoi
+mov [Z], rax
 
-movsd xmm0, [Y]
-movsd xmm1, xmm0
-mov rax, [X]
-cvtsi2sd xmm0, rax
-addsd xmm0, xmm1
+mov rax, 10
+mov [X], rax
+movsd xmm0, [double_1]
 movsd [Y], xmm0
-
+mov rax, [X]
+cvtsi2sd xmm1, rax
 movsd xmm0, [Y]
-mov rdi, fmt_double
-mov rax, 1
+addsd xmm0, xmm1
+mov [Z], rax
+
+mov rax, [Z]
+mov rdi, fmt_int
+mov rsi, rax
+xor rax, rax
 call printf
 
 
