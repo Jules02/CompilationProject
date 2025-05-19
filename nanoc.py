@@ -80,15 +80,17 @@ def asm_expression(e):
         return f"mov rax, {e.children[0].value}", "long"
     if e.data == "double":
         val = e.children[0].value
-        try:
-            float_val = float(val)
-            binary = struct.unpack('<Q', struct.pack('<d', float_val))[0]
-            const_name = f"double_{len(double_constants)}"
-            hexval = f"0x{binary:016X} ; {val}"
-            double_constants[const_name] = hexval
+        float_val = float(val)
+        if float_val in double_constants:
+            const_name, _, _ = double_constants[val]
             return f"movsd xmm0, [{const_name}]", "double"
-        except ValueError:
-            return "mov rax, 0", "long"
+        else:
+            binary = struct.unpack('<Q', struct.pack('<d', float_val))[0]
+            const_name = f".LC{len(double_constants)}"
+            low_word = binary & 0xFFFFFFFF
+            high_word = (binary >> 32) & 0xFFFFFFFF
+            double_constants[val] = (const_name, low_word, high_word)
+            return f"movsd xmm0, [{const_name}]", "double"
     if e.data == "cast_double":
         code, typ = asm_expression(e.children[0])
         if typ == "long":
@@ -96,7 +98,7 @@ def asm_expression(e):
         return f"{code}", "double"
     if e.data == "opbin":
         left_code, left_type = asm_expression(e.children[0])
-        op = e.children[1]
+        op = e.children[1].value
         right_code, right_type = asm_expression(e.children[2])
         if left_type == "long" and right_type == "long":
             return f"""{left_code}
@@ -221,31 +223,27 @@ def asm_program(p):
     with open("moule.asm", encoding="utf-8") as f:
         prog_asm = f.read()
 
-    # First pass: collect all double constants from the program
-    def collect_double_constants(node):
-        if node.data == "double":
-            val = node.children[0].value
-            try:
-                float_val = float(val)
-                binary = struct.unpack('<Q', struct.pack('<d', float_val))[0]
-                const_name = f"double_{len(double_constants)}"
-                hexval = f"0x{binary:016X} ; {val}"
-                double_constants[const_name] = hexval
-            except ValueError:
-                pass
-        for child in node.children:
-            if hasattr(child, 'children'):
-                collect_double_constants(child)
-
-    # Collect constants from the program body
-    collect_double_constants(p.children[2])
-    # Collect constants from the return expression
-    collect_double_constants(p.children[3])
 
     decl_vars = ""
     init_vars = ""
     
-    # Second pass: handle main parameters
+    def scan_double_constants(node):
+        if hasattr(node, 'data'):
+            if node.data == "affectation" or node.data == "declpuisinit_cmd":
+                if len(node.children) >= 2 and hasattr(node.children[1], 'data') and node.children[1].data == "double":
+                    val = node.children[1].children[0].value
+                    float_val = float(val)
+                    binary = struct.unpack('<Q', struct.pack('<d', float_val))[0]
+                    const_name = f".LC{len(double_constants)}"
+                    low_word = binary & 0xFFFFFFFF
+                    high_word = (binary >> 32) & 0xFFFFFFFF
+                    double_constants[val] = (const_name, low_word, high_word)
+            for child in node.children:
+                scan_double_constants(child)
+    
+    scan_double_constants(p.children[2])
+    
+    # handle main parameters
     for i, c in enumerate(p.children[1].children):
         type_node = c.children[0]
         var = c.children[1]
@@ -265,7 +263,7 @@ mov [{var.value}], rax
 """
         symboltable.initialize(var.value)
 
-    # Third pass: collect all other declarations
+    # collect all other declarations
     for d in get_declarations(p.children[2]):
         type_node = d.children[0]
         var = d.children[1]
@@ -274,11 +272,16 @@ mov [{var.value}], rax
             symboltable.declare(var.value, type_node.value)
         
     # Add double constants to .data section
-    for name, hexval in double_constants.items():
-        decl_vars += f"{name}: dq {hexval}\n"
+    # for name, hexval in double_constants.items():
+    #     decl_vars += f"{name}: dq {hexval}\n"
 
     ret_type = p.children[0].value
     code, typ = asm_expression(p.children[3])
+    
+    for val, (name, low, high) in double_constants.items():
+        decl_vars += f"{name}:\n"
+        decl_vars += f"        .long {low}\n"
+        decl_vars += f"        .long {high}\n"
     
     # Handle type conversion when function return type differs from the expression type
     if ret_type == "double":
