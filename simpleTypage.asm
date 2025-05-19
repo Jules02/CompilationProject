@@ -6,12 +6,7 @@ X: dq 0
 Y: dq 0
 Z: dq 0
 E: dq 0
-.LC0:
-        .long 858993459
-        .long 1070805811
-.LC1:
-        .long 3654794683
-        .long 1037794527
+LC0: dq 0x3DDB7CDFD9D7BDBB ; 1.0e-10
 
 argv: dq 0
 fmt_int:db "%d", 10, 0
@@ -37,11 +32,7 @@ mov rdi, [rbx + 24]
 call atof
 movsd [Z], xmm0
 
-mov rax, 10
-mov [X], rax
-movsd xmm0, [.LC2]
-movsd [Y], xmm0
-movsd xmm0, [.LC2]
+movsd xmm0, [LC0]
 movsd [E], xmm0
 mov rax, [X]
 cvtsi2sd xmm0, rax

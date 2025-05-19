@@ -81,12 +81,12 @@ def asm_expression(e):
     if e.data == "double":
         val = e.children[0].value
         float_val = float(val)
-        if float_val in double_constants:
+        if val in double_constants:
             const_name, _, _ = double_constants[val]
             return f"movsd xmm0, [{const_name}]", "double"
         else:
             binary = struct.unpack('<Q', struct.pack('<d', float_val))[0]
-            const_name = f".LC{len(double_constants)}"
+            const_name = f"LC{len(double_constants)}"
             low_word = binary & 0xFFFFFFFF
             high_word = (binary >> 32) & 0xFFFFFFFF
             double_constants[val] = (const_name, low_word, high_word)
@@ -234,7 +234,7 @@ def asm_program(p):
                     val = node.children[1].children[0].value
                     float_val = float(val)
                     binary = struct.unpack('<Q', struct.pack('<d', float_val))[0]
-                    const_name = f".LC{len(double_constants)}"
+                    const_name = f"LC{len(double_constants)}"
                     low_word = binary & 0xFFFFFFFF
                     high_word = (binary >> 32) & 0xFFFFFFFF
                     double_constants[val] = (const_name, low_word, high_word)
@@ -274,14 +274,14 @@ mov [{var.value}], rax
     # Add double constants to .data section
     # for name, hexval in double_constants.items():
     #     decl_vars += f"{name}: dq {hexval}\n"
+    for val, (name, _, _) in double_constants.items():
+        binary = struct.unpack('<Q', struct.pack('<d', float(val)))[0]
+        decl_vars += f"{name}: dq 0x{binary:016X} ; {val}\n"
+
 
     ret_type = p.children[0].value
     code, typ = asm_expression(p.children[3])
     
-    for val, (name, low, high) in double_constants.items():
-        decl_vars += f"{name}:\n"
-        decl_vars += f"        .long {low}\n"
-        decl_vars += f"        .long {high}\n"
     
     # Handle type conversion when function return type differs from the expression type
     if ret_type == "double":
