@@ -8,12 +8,11 @@ cpt = 0
 double_constants = {}
 
 g = Lark("""
-TYPE: "long" | "double"
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/|"0" 
 OPBIN: /[+\\-*\\/\\>]/
 DOUBLE: /[0-9]*\\.[0-9]+([eE][+-]?[0-9]+)?/
-declaration: TYPE IDENTIFIER                                                 -> declaration
+declaration: IDENTIFIER IDENTIFIER                                           -> declaration
 one_struct_def: "typedef" "struct" "{" (declaration ";")+ "}" IDENTIFIER ";" -> one_struct_def
 structs_def : (one_struct_def)*                                              -> structs_def                
 liste_var:                                                                   -> vide
@@ -26,14 +25,13 @@ expression: IDENTIFIER                                                       -> 
 commande: IDENTIFIER "=" expression ";"                                      -> affectation
     | declaration ";"                                                        -> decl_cmd
     | declaration "=" expression ";"                                         -> declpuisinit_cmd
-    | "struct" IDENTIFIER "{" (declaration ";")+ "}" ";"    -> struct
-    | "struct" IDENTIFIER IDENTIFIER ("{" expression ("," expression)* "}")? ";"     -> struct_init_seq
+    | IDENTIFIER IDENTIFIER ("{" expression ("," expression)* "}")? ";"      -> struct_init_seq
     | "while" "(" expression ")" "{" bloc "}"                                -> while
     | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?            -> ite
     | "printf" "(" expression ")" ";"                                        -> print
     | "skip" ";"                                                             -> skip
 bloc: (commande)*                                                            -> bloc
-program: structs_def? TYPE "main" "(" liste_var ")" "{" bloc "return" "("expression")" ";" "}"
+program: structs_def? IDENTIFIER "main" "(" liste_var ")" "{" bloc "return" "("expression")" ";" "}"
 %import common.WS
 %ignore WS
 """, start='program')
@@ -48,6 +46,16 @@ def get_vars_expression(e):
 
 def get_vars_commande(c):
     pass
+
+def get_types(p):
+    types = {"long": 1, "double": 1}
+    structs = p.children[0]
+    for struct in structs.children:
+        name = struct.children[-1]
+        nb_attributs = len(struct.children[:-1])
+        types[name] = nb_attributs
+    return types
+
 
 def get_declarations(c):
     # Cette fonction récursive permet de parcourir le corps du programme à la recherche de déclarations de variables
@@ -68,8 +76,8 @@ def get_declarations(c):
     return []
 
 
-op2asm = {'+' : 'add rax, rbx', '-': 'sub rax, rbx'}
-op2asm_double = {'+' : 'addsd xmm0, xmm1', '-': 'subsd xmm0, xmm1'}
+op2asm = {'+' : 'add rax, rbx', '-' : 'sub rax, rbx'}
+op2asm_double = {'+' : 'addsd xmm0, xmm1', '-' : 'subsd xmm0, xmm1'}
 
 def asm_expression(e):
     global double_constants
