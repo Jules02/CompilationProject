@@ -213,6 +213,7 @@ call printf
 """
     if c.data == "skip": return "nop"
 
+
 def asm_program(p):
     global double_constants, cpt
     double_constants.clear()
@@ -277,10 +278,10 @@ mov [{var.value}], rax
         decl_vars += f"{name}: dq 0x{binary:016X} ; {val}\n"
 
 
+
     ret_type = p.children[0].value
     code, typ = asm_expression(p.children[3])
     
-
     # Handle type conversion when function return type differs from the expression type
     if ret_type == "double":
         if typ == "long":
