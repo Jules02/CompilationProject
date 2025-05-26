@@ -25,7 +25,8 @@ expression: IDENTIFIER                                                      -> v
 commande: IDENTIFIER "=" expression ";"                                     -> affectation
     | declaration ";"                                                       -> decl_cmd
     | declaration "=" expression ";"                                        -> declpuisinit_cmd
-    | "struct" IDENTIFIER "{" declaration ";" (declaration ";")* "}" ";"    -> struct
+    | "struct" IDENTIFIER "{" declaration ";" (declaration ";")* "}" ";"    -> struct_def
+    | "struct" IDENTIFIER IDENTIFIER ("{" expression ("," expression)* "}")? ";"     -> struct_init_seq
     | "while" "(" expression ")" "{" bloc "}"                               -> while
     | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?           -> ite
     | "printf" "(" expression ")" ";"                                       -> print
@@ -76,15 +77,17 @@ def asm_expression(e):
         return f"mov rax, {e.children[0].value}", "long"
     if e.data == "double":
         val = e.children[0].value
-        try:
-            float_val = float(val)
-            binary = struct.unpack('<Q', struct.pack('<d', float_val))[0]
-            const_name = f"double_{len(double_constants)}"
-            hexval = f"0x{binary:016X} ; {val}"
-            double_constants[const_name] = hexval
+        float_val = float(val)
+        if val in double_constants:
+            const_name, _, _ = double_constants[val]
             return f"movsd xmm0, [{const_name}]", "double"
-        except ValueError:
-            return "mov rax, 0", "long"
+        else:
+            binary = struct.unpack('<Q', struct.pack('<d', float_val))[0]
+            const_name = f"LC{len(double_constants)}"
+            low_word = binary & 0xFFFFFFFF
+            high_word = (binary >> 32) & 0xFFFFFFFF
+            double_constants[val] = (const_name, low_word, high_word)
+            return f"movsd xmm0, [{const_name}]", "double"
     if e.data == "cast_double":
         code, typ = asm_expression(e.children[0])
         if typ == "long":
@@ -92,7 +95,7 @@ def asm_expression(e):
         return f"{code}", "double"
     if e.data == "opbin":
         left_code, left_type = asm_expression(e.children[0])
-        op = e.children[1]
+        op = e.children[1].value
         right_code, right_type = asm_expression(e.children[2])
         if left_type == "long" and right_type == "long":
             return f"""{left_code}
@@ -107,11 +110,13 @@ pop rax
             if raiseWarnings: print("Implicitly converting long to double")
         else:
             code += f"{left_code}\nmovsd xmm1, xmm0\n"
+
         if right_type == "long":
             code += f"{right_code}\ncvtsi2sd xmm0, rax\n"
             if raiseWarnings: print("Implicitly converting long to double")
         else:
             code += f"{right_code}\n"
+
         code += f"{op2asm_double[op]}"
         return code, "double"
 
@@ -134,6 +139,7 @@ def asm_commande(c):
         type_node = c.children[0].children[0]
         var = c.children[0].children[1]
         var_name = var.value
+
         if not symboltable.is_declared(var_name):
             symboltable.declare(var_name, type_node.value)
         return ""
@@ -142,8 +148,10 @@ def asm_commande(c):
         var = c.children[0].children[1]
         exp = c.children[1]
         var_name = var.value
+
         if not symboltable.is_declared(var_name):
             symboltable.declare(var_name, type_node.value)
+
         code, typ = asm_expression(exp)
         symboltable.initialize(var_name)
         if type_node.value == "double":
@@ -168,6 +176,7 @@ end{idx}: nop
         idx = cpt
         cpt += 1
         code, typ = asm_expression(exp)
+
         if len(c.children) > 2:
             body_else = c.children[2]
             return f"""{code}
@@ -212,9 +221,27 @@ def asm_program(p):
     with open("moule.asm", encoding="utf-8") as f:
         prog_asm = f.read()
 
+
     decl_vars = ""
     init_vars = ""
     
+    def scan_double_constants(node):
+        if hasattr(node, 'data'):
+            if node.data == "affectation" or node.data == "declpuisinit_cmd":
+                if len(node.children) >= 2 and hasattr(node.children[1], 'data') and node.children[1].data == "double":
+                    val = node.children[1].children[0].value
+                    float_val = float(val)
+                    binary = struct.unpack('<Q', struct.pack('<d', float_val))[0]
+                    const_name = f"LC{len(double_constants)}"
+                    low_word = binary & 0xFFFFFFFF
+                    high_word = (binary >> 32) & 0xFFFFFFFF
+                    double_constants[val] = (const_name, low_word, high_word)
+            for child in node.children:
+                scan_double_constants(child)
+
+    scan_double_constants(p.children[2])
+
+    # handle main parameters
     for i, c in enumerate(p.children[1].children):
         type_node = c.children[0]
         var = c.children[1]
@@ -234,20 +261,26 @@ mov [{var.value}], rax
 """
         symboltable.initialize(var.value)
 
-    # TODO: for the moment, double variables are declared as long
-
+    # collect all other declarations
     for d in get_declarations(p.children[2]):
         type_node = d.children[0]
         var = d.children[1]
-        decl_vars += f"{var.value}: dq 0\n"
-        symboltable.declare(var.value, type_node.value)
+        if not symboltable.is_declared(var.value):
+            decl_vars += f"{var.value}: dq 0\n"
+            symboltable.declare(var.value, type_node.value)
 
-    for name, hexval in double_constants.items():
-        decl_vars += f"{name}: dq {hexval}\n"
+    # Add double constants to .data section
+    # for name, hexval in double_constants.items():
+    #     decl_vars += f"{name}: dq {hexval}\n"
+    for val, (name, _, _) in double_constants.items():
+        binary = struct.unpack('<Q', struct.pack('<d', float(val)))[0]
+        decl_vars += f"{name}: dq 0x{binary:016X} ; {val}\n"
+
 
     ret_type = p.children[0].value
     code, typ = asm_expression(p.children[3])
     
+
     # Handle type conversion when function return type differs from the expression type
     if ret_type == "double":
         if typ == "long":
@@ -308,14 +341,8 @@ def pp_commande(c, indent=0):
         decla = c.children[0]
         exp = c.children[1]
         return f"{tab}{pp_declaration(decla)} = {pp_expression(exp)};"
-    if c.data == "struct":
-        name = c.children[0].value
-        decls = c.children[1:]
-        str_declarations = ""
-        for decl in decls[:-1]:
-            str_declarations += 2*tab + pp_declaration(decl) + ";\n"
-        str_declarations += 2*tab + pp_declaration(decls[-1]) + ";"
-        return f"{tab}struct {name} {{\n{str_declarations}\n{tab}}};"
+    if "struct" in c.data:
+        return pp_struct(c, indent)
     if c.data == "skip":
         return f"{tab}skip;"
     if c.data == "print":
@@ -331,6 +358,29 @@ def pp_commande(c, indent=0):
             com_else = c.children[2]
             return f"{tab}if ({pp_expression(exp)}) {{\n{pp_bloc(com, indent + 1)}{tab}}} else {{\n{pp_bloc(com_else, indent + 1)}{tab}}}"
         return f"{tab}if ({pp_expression(exp)}) {{\n{pp_bloc(com, indent + 1)}{tab}}}"
+
+def pp_struct(s, indent=0):
+    tab = "    " * indent
+    if s.data == "struct_def":
+        name = s.children[0].value
+        decls = s.children[1:]
+        str_declarations = ""
+        for decl in decls[:-1]:
+            str_declarations += 2*tab + pp_declaration(decl) + ";\n"
+        str_declarations += 2*tab + pp_declaration(decls[-1]) + ";"
+        return f"{tab}struct {name} {{\n{str_declarations}\n{tab}}};"
+    if s.data == "struct_init_seq":
+        struct_name = s.children[0].value
+        entity_name = s.children[1].value
+        if len(s.children) == 2:
+            return f"{tab}struct {struct_name} {entity_name};"
+        else:
+            exps = s.children[2:]
+            str_expressions = ""
+            for exp in exps[:-1]:
+                str_expressions += pp_expression(exp) + ", "
+            str_expressions += pp_expression(exps[-1])
+            return f"{tab}struct {struct_name} {entity_name} {{{str_expressions}}};"
 
 def pp_bloc(b, indent=0):
     str_commandes = ""
@@ -356,11 +406,11 @@ def pp_programme(p, indent=0):
 ###############################################################################################
 
 if __name__ == "__main__":
-    with open("simpleTypage.c", encoding="utf-8") as f:
+    with open("simpleStruct.c", encoding="utf-8") as f:
         src = f.read()
     raiseWarnings = True
     ast = g.parse(src)
-    print(asm_program(ast))
+    print(pp_programme(ast))
 
     # print(symboltable.table)
     #print(asm_program(ast))
