@@ -51,7 +51,7 @@ def get_types(p):
     types = {"long": 1, "double": 1}
     structs = p.children[0]
     for struct in structs.children:
-        name = struct.children[-1]
+        name = struct.children[-1].value
         nb_attributs = len(struct.children[:-1])
         types[name] = nb_attributs
     return types
