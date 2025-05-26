@@ -9,49 +9,65 @@ double_constants = {}
 raiseWarnings = False
 
 g = Lark("""
-TYPE: "long" | "double" | "struct" IDENTIFIER
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/|"0" 
 OPBIN: /[+\\-*\\/\\>]/
 DOUBLE: /[0-9]*\\.[0-9]+([eE][+-]?[0-9]+)?/
-declaration: TYPE IDENTIFIER                                                -> declaration                   
-liste_var:                                                                  -> vide
-    | declaration ("," declaration)*                                        -> vars
-expression: IDENTIFIER                                                      -> var
-    | expression OPBIN expression                                           -> opbin
-    | NUMBER                                                                -> number
-    | DOUBLE                                                                -> double
-    |"(" "double" ")" expression                                            -> cast_double
-commande: IDENTIFIER "=" expression ";"                                     -> affectation
-    | declaration ";"                                                       -> decl_cmd
-    | declaration "=" expression ";"                                        -> declpuisinit_cmd
-    | "struct" IDENTIFIER "{" declaration ";" (declaration ";")* "}" ";"    -> struct_def
-    | "struct" IDENTIFIER IDENTIFIER ("{" expression ("," expression)* "}")? ";"     -> struct_init_seq
-    | "while" "(" expression ")" "{" bloc "}"                               -> while
-    | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?           -> ite
-    | "printf" "(" expression ")" ";"                                       -> print
-    | "skip" ";"                                                            -> skip
-bloc: (commande)*                                                           -> bloc
-program: TYPE "main" "(" liste_var ")" "{" bloc "return" "("expression")" ";" "}"
+declaration: IDENTIFIER IDENTIFIER                                           -> declaration
+one_struct_def: "typedef" "struct" "{" (declaration ";")+ "}" IDENTIFIER ";" -> one_struct_def
+structs_def : (one_struct_def)*                                              -> structs_def                
+liste_var:                                                                   -> vide
+    | declaration ("," declaration)*                                         -> vars
+expression: IDENTIFIER                                                       -> var
+    | expression OPBIN expression                                            -> opbin
+    | NUMBER                                                                 -> number
+    | DOUBLE                                                                 -> double
+    |"(" "double" ")" expression                                             -> cast_double
+commande: IDENTIFIER "=" expression ";"                                      -> affectation
+    | declaration ";"                                                        -> decl_cmd
+    | declaration "=" expression ";"                                         -> declpuisinit_cmd
+    | IDENTIFIER IDENTIFIER ("{" expression ("," expression)* "}")? ";"      -> struct_init_seq
+    | "while" "(" expression ")" "{" bloc "}"                                -> while
+    | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?            -> ite
+    | "printf" "(" expression ")" ";"                                        -> print
+    | "skip" ";"                                                             -> skip
+bloc: (commande)*                                                            -> bloc
+program: structs_def? IDENTIFIER "main" "(" liste_var ")" "{" bloc "return" "("expression")" ";" "}"
 %import common.WS
 %ignore WS
 """, start='program')
 
-def get_declarations(c):
+
+
+def get_types(p):
+    types = {"long": 1, "double": 1}
+    structs = p.children[0]
+    for struct in structs.children:
+        name = struct.children[-1].value
+        nb_attributs = len(struct.children[:-1])
+        types[name] = nb_attributs
+    return types
+
+
+def get_declarations(c, types):
     # Cette fonction récursive permet de parcourir le corps du programme à la recherche de déclarations de variables
     if c.data == "bloc":
         d = []
         for child in c.children:
-            d.extend(get_declarations(child))
+            d.extend(get_declarations(child, types))
         return d
     if c.data == "decl_cmd" or c.data == "declpuisinit_cmd":
-        return [c.children[0]]
+        decl = c.children[0]
+        if decl.children[0] in types.keys():
+            return [decl]
+        else:
+            print(f"Not a proper type. Declaration {decl} has been ignored")
     if c.data == "while":
-        return get_declarations(c.children[1])
+        return get_declarations(c.children[1], types)
     if c.data == "ite":
-        d = get_declarations(c.children[1])
+        d = get_declarations(c.children[1], types)
         if len(c.children) == 3:
-            d.extend(get_declarations(c.children[2]))
+            d.extend(get_declarations(c.children[2], types))
         return d
     return []
 
@@ -62,6 +78,8 @@ def get_declarations(c):
 
 op2asm = {'+' : 'add rax, rbx', '-': 'sub rax, rbx'}
 op2asm_double = {'+' : 'addsd xmm0, xmm1', '-': 'subsd xmm0, xmm1'}
+op2asm = {'+' : 'add rax, rbx', '-' : 'sub rax, rbx'}
+op2asm_double = {'+' : 'addsd xmm0, xmm1', '-' : 'subsd xmm0, xmm1'}
 
 def asm_expression(e):
     global double_constants
@@ -263,7 +281,8 @@ mov [{var.value}], rax
         symboltable.initialize(var.value)
 
     # collect all other declarations
-    for d in get_declarations(p.children[2]):
+    types = get_types(p)
+    for d in get_declarations(p.children[2], types):
         type_node = d.children[0]
         var = d.children[1]
         if not symboltable.is_declared(var.value):
@@ -343,7 +362,7 @@ def pp_commande(c, indent=0):
         exp = c.children[1]
         return f"{tab}{pp_declaration(decla)} = {pp_expression(exp)};"
     if "struct" in c.data:
-        return pp_struct(c, indent)
+        return pp_struct_sanstypedef(c, indent)
     if c.data == "skip":
         return f"{tab}skip;"
     if c.data == "print":
@@ -360,9 +379,9 @@ def pp_commande(c, indent=0):
             return f"{tab}if ({pp_expression(exp)}) {{\n{pp_bloc(com, indent + 1)}{tab}}} else {{\n{pp_bloc(com_else, indent + 1)}{tab}}}"
         return f"{tab}if ({pp_expression(exp)}) {{\n{pp_bloc(com, indent + 1)}{tab}}}"
 
-def pp_struct(s, indent=0):
+def pp_struct_sanstypedef(s, indent=0):
     tab = "    " * indent
-    if s.data == "struct_def":
+    if s.data == "structs_def":
         name = s.children[0].value
         decls = s.children[1:]
         str_declarations = ""
@@ -383,23 +402,38 @@ def pp_struct(s, indent=0):
             str_expressions += pp_expression(exps[-1])
             return f"{tab}struct {struct_name} {entity_name} {{{str_expressions}}};"
 
+def pp_struct_typedef(s):
+    tab = "    "
+    str_structs = ""
+    for struct in s.children:
+        decls = struct.children[:-1]
+        name = struct.children[-1].value
+        str_declarations = ""
+        for decl in decls[:-1]:
+            str_declarations += tab + pp_declaration(decl) + ";\n"
+        str_declarations += tab + pp_declaration(decls[-1]) + ";"
+        str_structs +=  f"typedef struct {{\n{str_declarations}\n}} {name};\n\n"
+    return str_structs
+
 def pp_bloc(b, indent=0):
     str_commandes = ""
+    print('INSIDE PP\n', b)
     for com in b.children:
         str_commandes += pp_commande(com, indent) + "\n"
     return str_commandes
 
 def pp_programme(p, indent=0):
-    type_node = p.children[0]
-    args = p.children[1]
-    bloc = p.children[2]
-    exp = p.children[3]
+    structs = p.children[0]
+    type_node = p.children[1]
+    args = p.children[2]
+    bloc = p.children[3]
+    exp = p.children[4]
     str_args = ""
     if args.data != "vide":
         for arg in args.children[:-1]:
             str_args += pp_declaration(arg) + ", "
         str_args += pp_declaration(args.children[-1])
-    return f"{type_node.value} main({str_args}) {{\n{pp_bloc(bloc, indent+1)}    return ({pp_expression(exp)});\n}}"
+    return f"{pp_struct_typedef(structs)}{type_node.value} main({str_args}) {{\n{pp_bloc(bloc, indent+1)}    return ({pp_expression(exp)});\n}}"
 
 
 ###############################################################################################
