@@ -57,21 +57,25 @@ def get_types(p):
     return types
 
 
-def get_declarations(c):
+def get_declarations(c, types):
     # Cette fonction récursive permet de parcourir le corps du programme à la recherche de déclarations de variables
     if c.data == "bloc":
         d = []
         for child in c.children:
-            d.extend(get_declarations(child))
+            d.extend(get_declarations(child, types))
         return d
     if c.data == "decl_cmd" or c.data == "declpuisinit_cmd":
-        return [c.children[0]]
+        decl = c.children[0]
+        if decl.children[0] in types.keys():
+            return [decl]
+        else:
+            print(f"Not a proper type. Declaration {decl} has been ignored")
     if c.data == "while":
-        return get_declarations(c.children[1])
+        return get_declarations(c.children[1], types)
     if c.data == "ite":
-        d = get_declarations(c.children[1])
+        d = get_declarations(c.children[1], types)
         if len(c.children) == 3:
-            d.extend(get_declarations(c.children[2]))
+            d.extend(get_declarations(c.children[2], types))
         return d
     return []
 
@@ -254,8 +258,8 @@ call atoi
 mov [{var.value}], rax
 """
         symboltable.initialize(var.value)
-
-    for d in get_declarations(p.children[2]):
+    types = get_types(p)
+    for d in get_declarations(p.children[2], types):
         type_node = d.children[0]
         var = d.children[1]
         decl_vars += f"{var.value}: dq 0\n"
@@ -409,8 +413,9 @@ if __name__ == "__main__":
         src = f.read()
     ast = g.parse(src)
     #print(ast)
-    print("\n\n")
-    print(pp_programme(ast))
+    #print("\n\n")
+    print(get_types(ast))
+    #print(pp_programme(ast))
     #print(symboltable.table)
     #print(asm_program(ast))
     #print(ast.children[0].type)
