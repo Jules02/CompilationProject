@@ -2,11 +2,20 @@ Mathis ISAAC, Yuetong LU, Diogo BASSO, Jules DUPONT
 
 # Compiler
 
-This repository hosts our final assignment for the 'Advanced Compilation' module.
+This repository hosts our final assignment for the `Advanced Compilation` module.
 
-In addition to the core of the compiler developed in class, we were assigned to develop the four following:
-- types
-- double
-- struct
-- pointers
+### How to compile
+
+### Features implemented
+
+### Who did what
+
+Below is a table detailing who was assigned which main additional feature:
+
+| Feature  | Person  |
+|----------|---------|
+| types    | Jules   |
+| double   | YueTong |
+| struct   | Mathis  |
+| pointers | Diogo   |
 
