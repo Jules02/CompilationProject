@@ -1,11 +1,15 @@
 from lark import Lark
+from pretty_printers import *
 from symboltable import *
 
 symboltable = SymbolTable()
 import struct
 
 cpt = 0
-types = { "long" : 1, "double" : 1 }
+
+PRIMITIVE_TYPES = { "long" : 1, "double" : 1 }
+struct_definitions = {}
+
 double_constants = {}
 raiseWarnings = False
 
@@ -41,32 +45,35 @@ program: structs_def? IDENTIFIER "main" "(" liste_var ")" "{" bloc "return" "("e
 
 
 def get_struct_definitions(p):
-    # Cette fonction lit les typedefs du préambule
+    # Reads typedefs in the preamble
     structs = {}
     for struct in p.children[0].children:
-        for attribut in struct.children[:-1]:
-            type = attribut.children[0].value
-            print(type)
-            # TODO: detail these types in the struct definition
-        name = struct.children[-1].value
-        nb_attributs = len(struct.children[:-1])
-        structs[name] = nb_attributs
+        struct_name = struct.children[-1].value
+        struct_def = {"attributes" : {}, "size" : 0}
+        for attr in struct.children[:-1]:
+            attr_type = attr.children[0].value
+            attr_name = attr.children[1].value
+            struct_def["attributes"].update({attr_name : attr_type})
+            if attr_type in structs.keys() :
+                struct_def["size"] += structs[attr_type]["size"]
+            elif attr_type in PRIMITIVE_TYPES.keys() :
+                struct_def["size"] += 1
+            else :
+                if raiseWarnings : print(f"Defining structure {struct_name} with unknown type for attribute {attr_name}")
+                struct_def["size"] += 1
+        structs[struct_name] = struct_def
     return structs
 
 
 def get_declarations(c):
-    # Cette fonction récursive permet de parcourir le corps du programme à la recherche de déclarations de variables
+    # Recursive method traversing the body of the program in search of variable declarations
     if c.data == "bloc":
         d = []
         for child in c.children:
             d.extend(get_declarations(child))
         return d
     if c.data == "decl_cmd" or c.data == "declpuisinit_cmd":
-        decl = c.children[0]
-        if decl.children[0] in types.keys():
-            return [decl]
-        else:
-            if raiseWarnings: print(f"Not a proper type. Declaration {decl} has been ignored")
+        return [c.children[0]]
     if c.data == "while":
         return get_declarations(c.children[1])
     if c.data == "ite":
@@ -78,13 +85,11 @@ def get_declarations(c):
 
 
 ###############################################################################################
-            #ASM
+            # ASM
 ###############################################################################################
 
 op2asm = {'+' : 'add rax, rbx', '-': 'sub rax, rbx'}
 op2asm_double = {'+' : 'addsd xmm0, xmm1', '-': 'subsd xmm0, xmm1'}
-op2asm = {'+' : 'add rax, rbx', '-' : 'sub rax, rbx'}
-op2asm_double = {'+' : 'addsd xmm0, xmm1', '-' : 'subsd xmm0, xmm1'}
 
 def asm_expression(e):
     global double_constants
@@ -94,7 +99,11 @@ def asm_expression(e):
             var_type = symboltable.get_type(var_name)
             if var_type == "double":
                 return f"movsd xmm0, [{var_name}]", "double"
-            return f"mov rax, [{var_name}]", "long"
+            elif var_type == "long":
+                return f"mov rax, [{var_name}]", "long"
+            else:
+                # TODO: variable is a structure
+                return ""
         raise ValueError(f"Variable '{var_name}' is not declared.")
     if e.data == "number": 
         return f"mov rax, {e.children[0].value}", "long"
@@ -120,6 +129,9 @@ def asm_expression(e):
         left_code, left_type = asm_expression(e.children[0])
         op = e.children[1].value
         right_code, right_type = asm_expression(e.children[2])
+        if (left_type not in ["long", "double"]) or (right_type not in ["long", "double"]):
+            if raiseWarnings: print("Binary operations between two non supported types")
+            return ""
         if left_type == "long" and right_type == "long":
             return f"""{left_code}
 push rax
@@ -151,34 +163,44 @@ def asm_bloc(b):
 
 def asm_commande(c):
     global cpt
+
     if c.data == "affectation": 
-        var = c.children[0]
+        var_name = c.children[0].value
         exp = c.children[1]
         code, typ = asm_expression(exp)
-        if not symboltable.is_declared(var.value): return f""
-        if symboltable.get_type(var.value) not in ["long", "double"]:
-            # TODO
-            return f""
-        if symboltable.get_type(var.value) == "double":
-            return f"{code}\nmovsd [{var.value}], xmm0"
-        return f"{code}\nmov [{var.value}], rax"
+        if not symboltable.is_declared(var_name):
+            print(f"Trying to affect a value to {var_name}, which was not declared. Ignoring.")
+            return ""
+        symboltable.initialize(var_name)
+        if symboltable.get_type(var_name) == "double" :
+            return f"{code}\nmovsd [{var_name}], xmm0"
+        elif symboltable.get_type(var_name) == "long" :
+            return f"{code}\nmov [{var_name}], rax"
+        else :
+            # TODO: variable is a structure
+            return ""
+
     if c.data == "decl_cmd":
-        # all declarations were already made
+        # All declarations were already made
         return ""
+
     if c.data == "declpuisinit_cmd":
-        type_node = c.children[0].children[0]
-        var = c.children[0].children[1]
+        # Variable was already declared, we just need to initialize it
+        declaration = c.children[0]
+        type = declaration.children[0].value
+        var_name = declaration.children[1].value
         exp = c.children[1]
-        var_name = var.value
 
         code, typ = asm_expression(exp)
         symboltable.initialize(var_name)
-        if type_node.value not in ["long", "double"]:
-            # TODO
-            return f""
-        if type_node.value == "double":
+        if type == "double" :
             return f"{code}\nmovsd [{var_name}], xmm0"
-        return f"{code}\nmov [{var_name}], rax"
+        elif type == "long" :
+            return f"{code}\nmov [{var_name}], rax"
+        else:
+            # TODO: variable is a structure
+            return ""
+
     if c.data == "while":
         exp = c.children[0]
         body = c.children[1]
@@ -192,6 +214,7 @@ jz end{idx}
 jmp loop{idx}
 end{idx}: nop
 """
+
     if c.data == "ite":
         exp = c.children[0]
         body_if = c.children[1]
@@ -217,11 +240,12 @@ jz endif{idx}
 {asm_bloc(body_if)}
 endif{idx}: nop
 """
+
     if c.data == "print":
         exp = c.children[0]
         code, typ = asm_expression(exp)
         if typ not in ["long", "double"]:
-            # TODO
+            # TODO: variable is a structure
             return f""
         elif typ == "double":
             return f"""{code}
@@ -236,25 +260,49 @@ mov rsi, rax
 xor rax, rax
 call printf
 """
+
     if c.data == "skip": return "nop"
 
-def asm_declaration(type, var):
-    d = f"{var}: dq " + ", ".join(["0"] * types[type]) + "\n"
+def asm_declaration(var_name, type):
+    w = 0
+    if type in PRIMITIVE_TYPES.keys():
+        w = PRIMITIVE_TYPES[type]
+    else:
+        w = struct_definitions[type]["size"]
+    d = f"{var_name}: dq " + ", ".join(["0"] * w) + "\n"
     return d
 
+def asm_initialization(var_name, type, i):
+    initialization = ""
+    if type == "double":
+        initialization += f"""mov rbx, [argv]
+    mov rdi, [rbx + {(i+1)*8}]
+    call atof
+    movsd [{var_name}], xmm0
+    """
+    elif type == "long":
+        initialization += f"""mov rbx, [argv]
+    mov rdi, [rbx + {(i+1)*8}]
+    call atoi
+    mov [{var_name}], rax
+    """
+    else:
+        # TODO: initialize a struct variable
+        pass
+    return initialization
+
 def asm_program(p):
-    global double_constants, types, cpt
+    global double_constants, struct_definitions, cpt
     double_constants.clear()
     cpt = 0
     
     with open("moule.asm", encoding="utf-8") as f:
         prog_asm = f.read()
 
-
     decl_vars = ""
     init_vars = ""
 
-    types.update(get_struct_definitions(p))
+    struct_definitions = get_struct_definitions(p)
     
     def scan_double_constants(node):
         if hasattr(node, 'data'):
@@ -272,33 +320,30 @@ def asm_program(p):
 
     scan_double_constants(p.children[3])
 
-    # handle main parameters. they are all declared and initialized
+    # Handle arguments for main. They are all declared and initialized
     for i, c in enumerate(p.children[2].children):
-        type_node = c.children[0]
-        var = c.children[1]
-        decl_vars += asm_declaration(type_node.value, var.value)
-        symboltable.declare(var.value, type_node.value)
-        if type_node.value == "double":
-            init_vars += f"""mov rbx, [argv]
-mov rdi, [rbx + {(i+1)*8}]
-call atof
-movsd [{var.value}], xmm0
-"""
+        type = c.children[0].value
+        var_name = c.children[1].value
+        if type not in (PRIMITIVE_TYPES.keys() | struct_definitions.keys()):
+            if raiseWarnings: (print(f"Variable {var_name} declared with invalid type, ignoring it"))
         else:
-            init_vars += f"""mov rbx, [argv]
-mov rdi, [rbx + {(i+1)*8}]
-call atoi
-mov [{var.value}], rax
-"""
-        symboltable.initialize(var.value)
+            # Declaration
+            decl_vars += asm_declaration(var_name, type)
+            symboltable.declare(var_name, type)
+            # Initialization
+            init_vars += asm_initialization(var_name, type, i)
+            symboltable.initialize(var_name)
 
-    # collect all other declarations
+    # Collect all other declarations in the body of the program
     for d in get_declarations(p.children[3]):
-        type_node = d.children[0]
-        var = d.children[1]
-        if not symboltable.is_declared(var.value):
-            decl_vars += asm_declaration(type_node.value, var.value)
-            symboltable.declare(var.value, type_node.value)
+        type = d.children[0].value
+        var_name = d.children[1].value
+        if type not in (PRIMITIVE_TYPES.keys() | struct_definitions.keys()):
+            if raiseWarnings: (print(f"Variable {var_name} declared with invalid type, ignoring it"))
+        else:
+            if not symboltable.is_declared(var_name):
+                decl_vars += asm_declaration(var_name, type)
+                symboltable.declare(var_name, type)
 
     # Add double constants to .data section
     # for name, hexval in double_constants.items():
@@ -330,6 +375,11 @@ mov rsi, rax
 xor rax, rax
 call printf
 """
+    elif ret_type in struct_definitions.keys():
+        # TODO: returning a struct
+        pass
+    else:
+        raise ValueError("Invalid return type")
         
     prog_asm = prog_asm.replace("RETOUR", code)
     prog_asm = prog_asm.replace("DECL_VARS", decl_vars)
@@ -338,115 +388,10 @@ call printf
     
     return prog_asm
 
-###############################################################################################
-            #Pretty printer
-###############################################################################################
-
-def pp_declaration(d):
-    type_node = d.children[0]
-    var = d.children[1]
-    return f"{type_node.value} {var.value}"
-
-def pp_expression(e):
-    if e.data in ("var", "number", "double"): 
-        return f"{e.children[0].value}"
-    if e.data == "cast_double":
-        exp = e.children[0]
-        return f"(double)({pp_expression(exp)})"
-    e_left = e.children[0]
-    e_op = e.children[1]
-    e_right = e.children[2]
-    return f"{pp_expression(e_left)} {e_op.value} {pp_expression(e_right)}"
-
-def pp_commande(c, indent=0):
-    tab = "    " * indent
-    if c.data == "affectation": 
-        var = c.children[0]
-        exp = c.children[1]
-        return f"{tab}{var.value} = {pp_expression(exp)};"
-    if c.data == "decl_cmd":
-        return tab + pp_declaration(c.children[0]) + ";"
-    if c.data == "declpuisinit_cmd":
-        decla = c.children[0]
-        exp = c.children[1]
-        return f"{tab}{pp_declaration(decla)} = {pp_expression(exp)};"
-    if "struct" in c.data:
-        return pp_struct_sanstypedef(c, indent)
-    if c.data == "skip":
-        return f"{tab}skip;"
-    if c.data == "print":
-        return f"{tab}printf({pp_expression(c.children[0])});"
-    if c.data == "while":
-        exp = c.children[0]
-        body = c.children[1]
-        return f"{tab}while ({pp_expression(exp)}) {{\n{pp_bloc(body, indent + 1)}{tab}}}"
-    if c.data == "ite":
-        exp = c.children[0]
-        com = c.children[1]
-        if len(c.children) == 3:
-            com_else = c.children[2]
-            return f"{tab}if ({pp_expression(exp)}) {{\n{pp_bloc(com, indent + 1)}{tab}}} else {{\n{pp_bloc(com_else, indent + 1)}{tab}}}"
-        return f"{tab}if ({pp_expression(exp)}) {{\n{pp_bloc(com, indent + 1)}{tab}}}"
-
-def pp_struct_sanstypedef(s, indent=0):
-    tab = "    " * indent
-    if s.data == "structs_def":
-        name = s.children[0].value
-        decls = s.children[1:]
-        str_declarations = ""
-        for decl in decls[:-1]:
-            str_declarations += 2*tab + pp_declaration(decl) + ";\n"
-        str_declarations += 2*tab + pp_declaration(decls[-1]) + ";"
-        return f"{tab}struct {name} {{\n{str_declarations}\n{tab}}};"
-    if s.data == "struct_init_seq":
-        struct_name = s.children[0].value
-        entity_name = s.children[1].value
-        if len(s.children) == 2:
-            return f"{tab}struct {struct_name} {entity_name};"
-        else:
-            exps = s.children[2:]
-            str_expressions = ""
-            for exp in exps[:-1]:
-                str_expressions += pp_expression(exp) + ", "
-            str_expressions += pp_expression(exps[-1])
-            return f"{tab}struct {struct_name} {entity_name} {{{str_expressions}}};"
-
-def pp_struct_typedef(s):
-    tab = "    "
-    str_structs = ""
-    for struct in s.children:
-        decls = struct.children[:-1]
-        name = struct.children[-1].value
-        str_declarations = ""
-        for decl in decls[:-1]:
-            str_declarations += tab + pp_declaration(decl) + ";\n"
-        str_declarations += tab + pp_declaration(decls[-1]) + ";"
-        str_structs +=  f"typedef struct {{\n{str_declarations}\n}} {name};\n\n"
-    return str_structs
-
-def pp_bloc(b, indent=0):
-    str_commandes = ""
-    print('INSIDE PP\n', b)
-    for com in b.children:
-        str_commandes += pp_commande(com, indent) + "\n"
-    return str_commandes
-
-def pp_programme(p, indent=0):
-    structs = p.children[0]
-    type_node = p.children[1]
-    args = p.children[2]
-    bloc = p.children[3]
-    exp = p.children[4]
-    str_args = ""
-    if args.data != "vide":
-        for arg in args.children[:-1]:
-            str_args += pp_declaration(arg) + ", "
-        str_args += pp_declaration(args.children[-1])
-    return f"{pp_struct_typedef(structs)}{type_node.value} main({str_args}) {{\n{pp_bloc(bloc, indent+1)}    return ({pp_expression(exp)});\n}}"
 
 
 ###############################################################################################
-            #Main
+            # main
 ###############################################################################################
 
 if __name__ == "__main__":
