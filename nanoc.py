@@ -7,7 +7,7 @@ import struct
 
 cpt = 0
 
-PRIMITIVE_TYPES = { "long" : 1, "double" : 1 }
+PRIMITIVE_TYPES = { "long" : 8, "double" : 8 }
 struct_definitions = {}
 
 double_constants = {}
@@ -50,17 +50,21 @@ def get_struct_definitions(p):
     for struct in p.children[0].children:
         struct_name = struct.children[-1].value
         struct_def = {"attributes" : {}, "size" : 0}
+        offset = 0
         for attr in struct.children[:-1]:
-            attr_type = attr.children[0].value
             attr_name = attr.children[1].value
-            struct_def["attributes"].update({attr_name : attr_type})
+            attr_type = attr.children[0].value
+            attr_def = {attr_name : {"type" : attr_type, "offset" : offset}}
+            struct_def["attributes"].update(attr_def)
             if attr_type in structs.keys() :
-                struct_def["size"] += structs[attr_type]["size"]
+                attr_size = structs[attr_type]["size"]
             elif attr_type in PRIMITIVE_TYPES.keys() :
-                struct_def["size"] += 1
+                attr_size = PRIMITIVE_TYPES[attr_type]
             else :
                 if raiseWarnings : print(f"Defining structure {struct_name} with unknown type for attribute {attr_name}")
-                struct_def["size"] += 1
+                attr_size = 8
+            struct_def["size"] += attr_size
+            offset += attr_size
         structs[struct_name] = struct_def
     return structs
 
@@ -102,8 +106,19 @@ def asm_expression(e):
             elif var_type == "long":
                 return f"mov rax, [{var_name}]", "long"
             else:
-                # TODO: variable is a structure
-                return ""
+                a = ""
+                struct_definition = struct_definitions[var_type]
+                for attr in struct_definition["attributes"]:
+                    attr_type = struct_definition["attributes"][attr]["type"]
+                    attr_offset = struct_definition["attributes"][attr]["offset"]
+                    if attr_type == "double":
+                        a += f"movsd xmm0+{attr_offset}, [{var_name}]+{attr_offset}\n"
+                    elif attr_type == "long":
+                        a += f"mov rax+{attr_offset}, [{var_name}]+{attr_offset}\n"
+                    else:
+                        # TODO: handle nested structure
+                        a += ""
+                return a, var_type              # second return value to be reviewed
         raise ValueError(f"Variable '{var_name}' is not declared.")
     if e.data == "number": 
         return f"mov rax, {e.children[0].value}", "long"
@@ -164,6 +179,27 @@ def asm_bloc(b):
 def asm_commande(c):
     global cpt
 
+    def affect(code, var_type, var_name) :
+        symboltable.initialize(var_name)
+        if var_type == "double":
+            return f"{code}\nmovsd [{var_name}], xmm0"
+        elif var_type == "long":
+            return f"{code}\nmov [{var_name}], rax"
+        else:
+            a = f"{code}\n"
+            struct_definition = struct_definitions[var_type]
+            for attr in struct_definition["attributes"]:
+                attr_type = struct_definition["attributes"][attr]["type"]
+                attr_offset = struct_definition["attributes"][attr]["offset"]
+                if attr_type == "double":
+                    a += f"movsd [{var_name}]+{attr_offset}, xmm0+{attr_offset}\n"
+                elif attr_type == "long":
+                    a += f"mov [{var_name}]+{attr_offset}, rax+{attr_offset}\n"
+                else:
+                    # TODO: handle nested structure
+                    a += ""
+            return a
+
     if c.data == "affectation": 
         var_name = c.children[0].value
         exp = c.children[1]
@@ -171,14 +207,9 @@ def asm_commande(c):
         if not symboltable.is_declared(var_name):
             print(f"Trying to affect a value to {var_name}, which was not declared. Ignoring.")
             return ""
-        symboltable.initialize(var_name)
-        if symboltable.get_type(var_name) == "double" :
-            return f"{code}\nmovsd [{var_name}], xmm0"
-        elif symboltable.get_type(var_name) == "long" :
-            return f"{code}\nmov [{var_name}], rax"
-        else :
-            # TODO: variable is a structure
-            return ""
+        var_type = symboltable.get_type(var_name)
+        # TODO: handle case when typ is not var_type
+        return affect(code, var_type, var_name)
 
     if c.data == "decl_cmd":
         # All declarations were already made
@@ -187,19 +218,12 @@ def asm_commande(c):
     if c.data == "declpuisinit_cmd":
         # Variable was already declared, we just need to initialize it
         declaration = c.children[0]
-        type = declaration.children[0].value
+        var_type = declaration.children[0].value
         var_name = declaration.children[1].value
         exp = c.children[1]
-
         code, typ = asm_expression(exp)
-        symboltable.initialize(var_name)
-        if type == "double" :
-            return f"{code}\nmovsd [{var_name}], xmm0"
-        elif type == "long" :
-            return f"{code}\nmov [{var_name}], rax"
-        else:
-            # TODO: variable is a structure
-            return ""
+        # TODO: handle case when typ is not var_type
+        return affect(code, var_type, var_name)
 
     if c.data == "while":
         exp = c.children[0]
@@ -269,26 +293,37 @@ def asm_declaration(var_name, type):
         w = PRIMITIVE_TYPES[type]
     else:
         w = struct_definitions[type]["size"]
-    d = f"{var_name}: dq " + ", ".join(["0"] * w) + "\n"
+    d = f"{var_name}: dq " + ", ".join(["0"] * (w//8)) + "\n"
     return d
 
-def asm_initialization(var_name, type, i):
+def asm_initialization(var_name, type, position):
     initialization = ""
     if type == "double":
-        initialization += f"""mov rbx, [argv]
-    mov rdi, [rbx + {(i+1)*8}]
-    call atof
-    movsd [{var_name}], xmm0
-    """
+        initialization += f"""
+mov rbx, [argv]
+mov rdi, [rbx + {position}]
+call atof
+movsd [{var_name}], xmm0
+"""
     elif type == "long":
-        initialization += f"""mov rbx, [argv]
-    mov rdi, [rbx + {(i+1)*8}]
-    call atoi
-    mov [{var_name}], rax
-    """
+        initialization += f"""
+mov rbx, [argv]
+mov rdi, [rbx + {position}]
+call atoi
+mov [{var_name}], rax
+"""
     else:
-        # TODO: initialize a struct variable
-        pass
+        struct_definition = struct_definitions[type]
+        for attr in struct_definition["attributes"]:
+            # TODO: handle nested structure
+            attr_offset = struct_definition["attributes"][attr]["offset"]
+            initialization += f"""
+mov rbx, [argv]
+mov rdi, [rbx + {position}]
+call atoi                                                           # TO BE REVIEWED
+mov [{var_name}]+{attr_offset}, rax
+"""
+            position += attr_offset
     return initialization
 
 def asm_program(p):
@@ -321,7 +356,8 @@ def asm_program(p):
     scan_double_constants(p.children[3])
 
     # Handle arguments for main. They are all declared and initialized
-    for i, c in enumerate(p.children[2].children):
+    position = 0
+    for c in p.children[2].children:
         type = c.children[0].value
         var_name = c.children[1].value
         if type not in (PRIMITIVE_TYPES.keys() | struct_definitions.keys()):
@@ -331,7 +367,11 @@ def asm_program(p):
             decl_vars += asm_declaration(var_name, type)
             symboltable.declare(var_name, type)
             # Initialization
-            init_vars += asm_initialization(var_name, type, i)
+            init_vars += asm_initialization(var_name, type, position)
+            if type in PRIMITIVE_TYPES.keys() :
+                position += PRIMITIVE_TYPES[type]
+            else:
+                position += struct_definitions[type]["size"]
             symboltable.initialize(var_name)
 
     # Collect all other declarations in the body of the program
@@ -401,6 +441,7 @@ if __name__ == "__main__":
     ast = g.parse(src)
 
     # print(symboltable.table)
-    print(asm_program(ast))
+    with open("simpleTypage.asm", "w", encoding="utf-8") as file:
+        file.write(asm_program(ast))
     #print(ast.children[0].type)
     #print(ast.children[0].value)

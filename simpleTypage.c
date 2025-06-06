@@ -1,6 +1,7 @@
 typedef struct {
     long x;
     long y;
+    double alpha;
 } Point;
 
 typedef struct {
@@ -14,9 +15,9 @@ typedef struct {
     double Z;
 } Test;
 
-long main(long X, double Y, double Z){
+long main(long X, Point p, double Y, double Z){
     double E = 1.0e-10;
-    Point p;
+    Point P2 = p;
     Z = (double)X + Y - E;
     return (Z);
 }
