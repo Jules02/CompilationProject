@@ -15,9 +15,9 @@ typedef struct {
     double Z;
 } Test;
 
-long main(long X, Point p, double Y, double Z){
+long main(long X, Ligne p, double Y, double Z){
     double E = 1.0e-10;
-    Point P2 = p;
+    Ligne P2 = p;
     Z = (double)X + Y - E;
     return (Z);
 }

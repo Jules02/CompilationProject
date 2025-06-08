@@ -97,6 +97,22 @@ op2asm_double = {'+' : 'addsd xmm0, xmm1', '-': 'subsd xmm0, xmm1'}
 
 def asm_expression(e):
     global double_constants
+
+    def push_structure(container_name, var_type, offset) :
+        # Handles nested structures
+        struct_definition = struct_definitions[var_type]
+        a = ""
+        for attr in struct_definition["attributes"]:
+            attr_type = struct_definition["attributes"][attr]["type"]
+            attr_offset = struct_definition["attributes"][attr]["offset"]
+            if attr_type == "double":
+                a += f"movsd xmm0+{offset}+{attr_offset}, [{container_name}]+{offset}+{attr_offset}\n"
+            elif attr_type == "long":
+                a += f"mov rax+{offset}+{attr_offset}, [{container_name}]+{offset}+{attr_offset}\n"
+            else:
+                a += push_structure(container_name, attr_type, offset+attr_offset)
+        return a
+
     if e.data == "var":
         var_name = e.children[0].value
         if symboltable.is_declared(var_name):
@@ -106,22 +122,14 @@ def asm_expression(e):
             elif var_type == "long":
                 return f"mov rax, [{var_name}]", "long"
             else:
-                a = ""
-                struct_definition = struct_definitions[var_type]
-                for attr in struct_definition["attributes"]:
-                    attr_type = struct_definition["attributes"][attr]["type"]
-                    attr_offset = struct_definition["attributes"][attr]["offset"]
-                    if attr_type == "double":
-                        a += f"movsd xmm0+{attr_offset}, [{var_name}]+{attr_offset}\n"
-                    elif attr_type == "long":
-                        a += f"mov rax+{attr_offset}, [{var_name}]+{attr_offset}\n"
-                    else:
-                        # TODO: handle nested structure
-                        a += ""
-                return a, var_type              # second return value to be reviewed
-        raise ValueError(f"Variable '{var_name}' is not declared.")
+                # Variable is a structure
+                return push_structure(var_name, var_type, 0), var_type
+        else:
+            raise ValueError(f"Variable '{var_name}' is not declared.")
+
     if e.data == "number": 
         return f"mov rax, {e.children[0].value}", "long"
+
     if e.data == "double":
         val = e.children[0].value
         float_val = float(val)
@@ -135,11 +143,13 @@ def asm_expression(e):
             high_word = (binary >> 32) & 0xFFFFFFFF
             double_constants[val] = (const_name, low_word, high_word)
             return f"movsd xmm0, [{const_name}]", "double"
+
     if e.data == "cast_double":
         code, typ = asm_expression(e.children[0])
         if typ == "long":
             return f"{code}\ncvtsi2sd xmm0, rax", "double"
         return f"{code}", "double"
+
     if e.data == "opbin":
         left_code, left_type = asm_expression(e.children[0])
         op = e.children[1].value
@@ -179,25 +189,20 @@ def asm_bloc(b):
 def asm_commande(c):
     global cpt
 
-    def affect(code, var_type, var_name) :
-        symboltable.initialize(var_name)
+    def affect(var_type, var_name, offset) :
+        # The method is recursive for handling nested structures
         if var_type == "double":
-            return f"{code}\nmovsd [{var_name}], xmm0"
+            return f"movsd [{var_name}]+{offset}, xmm0+{offset}\n"
         elif var_type == "long":
-            return f"{code}\nmov [{var_name}], rax"
+            return f"mov [{var_name}]+{offset}, rax+{offset}\n"
         else:
-            a = f"{code}\n"
+            # Variable is a structure
+            a = ""
             struct_definition = struct_definitions[var_type]
             for attr in struct_definition["attributes"]:
                 attr_type = struct_definition["attributes"][attr]["type"]
                 attr_offset = struct_definition["attributes"][attr]["offset"]
-                if attr_type == "double":
-                    a += f"movsd [{var_name}]+{attr_offset}, xmm0+{attr_offset}\n"
-                elif attr_type == "long":
-                    a += f"mov [{var_name}]+{attr_offset}, rax+{attr_offset}\n"
-                else:
-                    # TODO: handle nested structure
-                    a += ""
+                a += affect(attr_type, var_name, offset + attr_offset)
             return a
 
     if c.data == "affectation": 
@@ -209,7 +214,8 @@ def asm_commande(c):
             return ""
         var_type = symboltable.get_type(var_name)
         # TODO: handle case when typ is not var_type
-        return affect(code, var_type, var_name)
+        symboltable.initialize(var_name)
+        return code + "\n" + affect(var_type, var_name, 0)
 
     if c.data == "decl_cmd":
         # All declarations were already made
@@ -223,7 +229,7 @@ def asm_commande(c):
         exp = c.children[1]
         code, typ = asm_expression(exp)
         # TODO: handle case when typ is not var_type
-        return affect(code, var_type, var_name)
+        return code + "\n" + affect(var_type, var_name, 0)
 
     if c.data == "while":
         exp = c.children[0]
@@ -313,17 +319,33 @@ call atoi
 mov [{var_name}], rax
 """
     else:
-        struct_definition = struct_definitions[type]
-        for attr in struct_definition["attributes"]:
-            # TODO: handle nested structure
-            attr_offset = struct_definition["attributes"][attr]["offset"]
-            initialization += f"""
-mov rbx, [argv]
-mov rdi, [rbx + {position}]
-call atoi                                                           # TO BE REVIEWED
-mov [{var_name}]+{attr_offset}, rax
+
+        def affect_init(var_type, var_name, offset) :
+            # Similar to asm_commande.affect, recursive for nested structures
+            if var_type == "double":
+                return f"""mov rbx, [argv]
+mov rdi, [rbx + {offset}]
+call atof
+movsd [{var_name}]+{offset}, xmm0
 """
-            position += attr_offset
+            elif var_type == "long":
+                return f"""mov rbx, [argv]
+mov rdi, [rbx + {offset}]
+call atoi
+mov [{var_name}]+{offset}, rax
+"""
+            else:
+                # Variable is a structure
+                a = ""
+                struct_definition = struct_definitions[var_type]
+                for attr in struct_definition["attributes"]:
+                    attr_type = struct_definition["attributes"][attr]["type"]
+                    attr_offset = struct_definition["attributes"][attr]["offset"]
+                    a += affect_init(attr_type, var_name, offset + attr_offset)
+                return a
+
+        initialization += affect_init(type, var_name, position)
+        position += struct_definitions[type]["size"]
     return initialization
 
 def asm_program(p):
