@@ -1,4 +1,4 @@
-extern printf, atoi, atof
+extern printf, atoi, atof, malloc
 
 section .data
 
@@ -55,7 +55,8 @@ call malloc
 
 mov [buf], rax
 
-loop0:mov rax, 3
+loop0:
+mov rax, 3
 
 push rax
 mov rax, [X]

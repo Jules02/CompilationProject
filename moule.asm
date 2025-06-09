@@ -1,4 +1,4 @@
-extern printf, atoi, atof
+extern printf, atoi, atof, malloc
 
 section .data
 
