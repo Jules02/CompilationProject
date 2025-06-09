@@ -2,15 +2,13 @@ extern printf, atoi, atof, malloc
 
 section .data
 
-X: dq 0
-Y: dq 0
-Z: dq 0
-E: dq 0
-p: dq 0, 0
-ptrTst: dq 0
-buf: dq 0
-T: dq 0
-LC0: dq 0x3DDB7CDFD9D7BDBB ; 1.0e-10
+A: dq 0
+B: dq 0
+C: dq 0
+ptrA: dq 0
+buffer: dq 0
+sum: dq 0
+sub: dq 0
 
 argv: dq 0
 fmt_int:db "%d", 10, 0
@@ -27,85 +25,70 @@ mov [argv], rsi
 mov rbx, [argv]
 mov rdi, [rbx + 8]
 call atoi
-mov [X], rax
+mov [A], rax
 
 mov rbx, [argv]
 mov rdi, [rbx + 16]
-call atof
-movsd [Y], xmm0
+call atoi
+mov [B], rax
 
 mov rbx, [argv]
 mov rdi, [rbx + 24]
 call atoi
-mov [Z], rax
-
-movsd xmm0, [LC0]
-
-movsd [E], xmm0
+mov [C], rax
 
 
+lea rax, [A]
 
-lea rax, [Z]
-
-mov [ptrTst], rax
+mov [ptrA], rax
 
 
 
 mov rdi, 8
 call malloc
 
-mov [buf], rax
+mov [buffer], rax
 
-loop0:
-mov rax, 3
+mov rax, [A]
 
 push rax
-mov rax, [X]
+mov rax, [B]
 
 mov rbx, rax
 pop rax
 add rax, rbx
-cmp rax, 0
-jz end0
-mov rax, 3
+mov [sum], rax
+
+mov rax, [ptrA]
 
 push rax
-mov rax, [X]
-
-mov rbx, rax
-pop rax
-add rax, rbx
-mov [T], rax
-
-movsd xmm0, [Y]
-
-mov rdi, fmt_double
-mov rax, 1
-call printf
-mov rax, [X]
-
-push rax
-mov rax, 4
-
-mov rbx, rax
-pop rax
-add rax, rbx
-mov [Z], rax
-
-mov rax, [X]
-
-push rax
-mov rax, 1
+mov rax, [C]
 
 mov rbx, rax
 pop rax
 sub rax, rbx
-mov [X], rax
+mov [sub], rax
 
-jmp loop0
-end0: nop
-mov rax, [Z]
+mov rax, [sum]
 
+mov rdi, fmt_int
+mov rsi, rax
+xor rax, rax
+call printf
+mov rax, [sub]
+
+mov rdi, fmt_int
+mov rsi, rax
+xor rax, rax
+call printf
+mov rax, [sum]
+
+push rax
+mov rax, [sub]
+
+mov rbx, rax
+pop rax
+add rax, rbx
 
 pop rbp
 ret
