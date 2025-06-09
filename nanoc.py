@@ -193,10 +193,12 @@ def asm_commande(c):
         body = c.children[1]
         idx = next(cpt)
         code, _ = asm_expression(exp)
-        return f"""loop{idx}:{code}
+        return f"""loop{idx}:
+{code}
 cmp rax, 0
 jz end{idx}
-{asm_bloc(body)}\njmp loop{idx}
+{asm_bloc(body)}
+jmp loop{idx}
 end{idx}: nop"""
 
     if c.data == "ite":
@@ -263,7 +265,6 @@ mov rdi, [rbx + {(i+1)*8}]
 call atoi
 mov [{var_name}], rax
 """
-
 def asm_program(p):
     global double_constants, struct_definitions
     double_constants.clear()
@@ -273,39 +274,45 @@ def asm_program(p):
 
     decl_vars = ""
     init_vars = ""
+
     struct_definitions = get_struct_definitions(p)
-    
+
     for i, c in enumerate(p.children[2].children):
-        type_ = c.children[0].value
-        var_name = c.children[-1].value 
-        if type_ not in (set(PRIMITIVE_TYPES.keys()) | set(struct_definitions.keys())):
-            continue
-        decl_vars += asm_declaration(var_name, type_)
-        symboltable.declare(var_name, type_)
-        init_vars += asm_initialization(var_name, type_, i)
-        symboltable.initialize(var_name)
+        tipo      = c.children[0].value
+        var_name  = c.children[-1].value
+        if tipo in PRIMITIVE_TYPES or tipo in struct_definitions:
+            decl_vars += asm_declaration(var_name, tipo)
+            symboltable.declare(var_name, tipo)
+            init_vars += asm_initialization(var_name, tipo, i)
+            symboltable.initialize(var_name)
 
+    # ---------- outras declarações ----------
     for d in get_declarations(p.children[3]):
-        type_ = d.children[0].value
-        var_name = d.children[-1].value
-        if type_ not in (set(PRIMITIVE_TYPES.keys()) | set(struct_definitions.keys())):
-            continue
-        if not symboltable.is_declared(var_name):
-            decl_vars += asm_declaration(var_name, type_)
-            symboltable.declare(var_name, type_)
+        tipo      = d.children[0].value
+        var_name  = d.children[-1].value
+        if (tipo in PRIMITIVE_TYPES or tipo in struct_definitions) and not symboltable.is_declared(var_name):
+            decl_vars += asm_declaration(var_name, tipo)
+            symboltable.declare(var_name, tipo)
 
-    ret_type = p.children[1].value
-    code_ret, expr_t = asm_expression(p.children[4])
+    commandes_code = asm_bloc(p.children[3])
+    ret_type       = p.children[1].value
+    code_ret, typ  = asm_expression(p.children[4])
 
-    if ret_type == "double" and expr_t == "long":
+    if ret_type == "double" and typ == "long":
         code_ret += "\ncvtsi2sd xmm0, rax"
-    if ret_type == "long" and expr_t == "double":
+    elif ret_type == "long" and typ == "double":
         code_ret += "\ncvttsd2si rax, xmm0"
 
-    prog_asm = prog_asm.replace("RETOUR", code_ret)
-    prog_asm = prog_asm.replace("DECL_VARS", decl_vars)
-    prog_asm = prog_asm.replace("INIT_VARS", init_vars)
-    prog_asm = prog_asm.replace("COMMANDE", asm_bloc(p.children[3]))
+    for val, (name, _, _) in double_constants.items():
+        binary = struct.unpack('<Q', struct.pack('<d', float(val)))[0]
+        decl_vars += f"{name}: dq 0x{binary:016X} ; {val}\n"
+
+    prog_asm = (prog_asm
+                .replace("RETOUR",    code_ret)
+                .replace("DECL_VARS", decl_vars)
+                .replace("INIT_VARS", init_vars)
+                .replace("COMMANDE",  commandes_code))
+
     return prog_asm
 
 if __name__ == "__main__":
