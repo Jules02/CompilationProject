@@ -89,7 +89,6 @@ def pp_struct_typedef(s):
 
 def pp_bloc(b, indent=0):
     str_commandes = ""
-    print('INSIDE PP\n', b)
     for com in b.children:
         result = pp_commande(com, indent)
         if result is not None:
