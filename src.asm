@@ -10,6 +10,7 @@ p: dq 0, 0
 ptrTst: dq 0
 buf: dq 0
 T: dq 0
+LC0: dq 0x3DDB7CDFD9D7BDBB ; 1.0e-10
 
 argv: dq 0
 fmt_int:db "%d", 10, 0
