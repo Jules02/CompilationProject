@@ -87,47 +87,48 @@ op2asm = {'+': 'add rax, rbx', '-': 'sub rax, rbx'}
 op2asm_double = {'+': 'addsd xmm0, xmm1', '-': 'subsd xmm0, xmm1'}
 
 def asm_expression(e):
+    """Gera código e tipo da expressão. Sempre retorna (code:str, typ:str)."""
     global double_constants
+
     if e.data == "var":
         var_name = e.children[0].value
-        if symboltable.is_declared(var_name):
-            var_type = symboltable.get_type(var_name)
-            if var_type == "double":
-                return f"movsd xmm0, [{{var_name}}]", "double"
-            else:  # long ou ponteiro
-                return f"mov rax, [{{var_name}}]", "long"
-        raise ValueError(f"Variable '{{var_name}}' is not declared.")
+        if not symboltable.is_declared(var_name):
+            raise ValueError(f"Variable '{var_name}' is not declared.")
+        var_type = symboltable.get_type(var_name)
+        if var_type == "double":
+            return f"movsd xmm0, [{var_name}]", "double"
+        else: 
+            return f"mov rax, [{var_name}]", "long"
 
-    # &var → pointer (long)
     if e.data == "addr_of":
         var_name = e.children[0].value
         if not symboltable.is_declared(var_name):
-            raise ValueError(f"Variable '{{var_name}}' is not declared.")
-        return f"lea rax, [{{var_name}}]", "long"
+            raise ValueError(f"Variable '{var_name}' is not declared.")
+        return f"lea rax, [{var_name}]", "long"
 
-    # malloc() → pointer (long)
     if e.data == "malloc_call":
+        # aloca 8 bytes e devolve ponteiro em rax
         return "mov rdi, 8\ncall malloc", "long"
-    
+
     if e.data == "number":
         return f"mov rax, {e.children[0].value}", "long"
+
     if e.data == "double":
         val = e.children[0].value
-        float_val = float(val)
-        if val in double_constants:
-            const_name, _, _ = double_constants[val]
-            return f"movsd xmm0, [{{const_name}}]", "double"
-        binary = struct.unpack('<Q', struct.pack('<d', float_val))[0]
-        const_name = f"LC{{len(double_constants)}}"
-        double_constants[val] = (const_name, binary & 0xFFFFFFFF, (binary >> 32) & 0xFFFFFFFF)
-        return f"movsd xmm0, [{{const_name}}]", "double"
+        if val not in double_constants:
+            float_val = float(val)
+            binary = struct.unpack('<Q', struct.pack('<d', float_val))[0]
+            const_name = f"LC{len(double_constants)}"
+            double_constants[val] = (const_name, binary & 0xFFFFFFFF, (binary >> 32) & 0xFFFFFFFF)
+        const_name = double_constants[val][0]
+        return f"movsd xmm0, [{const_name}]", "double"
 
     if e.data == "cast_double":
         code, typ = asm_expression(e.children[0])
         if typ == "long":
             return f"{code}\ncvtsi2sd xmm0, rax", "double"
         return code, "double"
-    
+
     if e.data == "opbin":
         left_code, left_type = asm_expression(e.children[0])
         op = e.children[1].value
@@ -153,9 +154,11 @@ pop rax
         code += op2asm_double[op]
         return code, "double"
 
-def asm_commande(c):
-    global cpt
+    if raiseWarnings:
+        print(f"Unsupported expression kind: {e.data}")
+    return "", "long" 
 
+def asm_commande(c):
     if c.data == "affectation":
         var_name = c.children[0].value
         exp = c.children[1]
@@ -238,13 +241,11 @@ call printf"""
 def asm_bloc(b):
     return "\n".join(asm_commande(c) for c in b.children)
 
-# -----------------------------------------------------------------------------
-#  DECLARAÇÕES (.data) – sem mudanças
-# -----------------------------------------------------------------------------
-
 def asm_declaration(var_name, type_):
-    w = PRIMITIVE_TYPES.get(type_, struct_definitions.get(type_, {"size": 1})["size"])
-    return f"{var_name}: dq " + ", ".join(["0"] * w) + "\n"
+    w = PRIMITIVE_TYPES.get(type_)
+    if w is None:
+        w = struct_definitions.get(type_, {}).get("size", 1)
+    return f"{var_name}: dq " + ", ".join(["0"] * int(w)) + "\n"
 
 def asm_initialization(var_name, type_, i):
     if type_ == "double":
