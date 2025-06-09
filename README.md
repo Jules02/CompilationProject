@@ -28,7 +28,7 @@ nasm -f elf64 src.asm -o src.o
 3. Exécutez le code d'assemblage :
 
 ```bash
-gcc src.o -o src
+gcc -no-pie src.o -o programa
 ./src
 ```
 
