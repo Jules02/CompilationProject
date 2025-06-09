@@ -21,17 +21,14 @@ long main(long X, double Y, long Z)
 {
     double E = 1.0e-10;
 
-    /* Structs */
     Point p;
 
-    /* Ponteiros */
     long *ptr;
-    ptr = &Z; // endereço de variável
+    ptr = &Z;
 
     long *buf;
-    buf = malloc(); // alocação dinâmica (8 bytes)
+    buf = malloc();
 
-    /* Loop e impressão */
     while (3 + X)
     {
         long T = 3 + X;
