@@ -1,41 +1,16 @@
-typedef struct
+long main(long A, long B, long C)
 {
-    long x;
-    long y;
-} Point;
+    long *ptrA;
+    ptrA = &A;
 
-typedef struct
-{
-    Point src;
-    Point tgt;
-} Ligne;
+    long *buffer;
+    buffer = malloc();
 
-typedef struct
-{
-    long x;
-    double T;
-    double Z;
-} Test;
+    long sum = A + B;
+    long sub = ptrA - C;
 
-long main(long X, double Y, long Z)
-{
-    double E = 1.0e-10;
+    printf(sum);
+    printf(sub);
 
-    Point p;
-
-    long *ptrTst;
-    ptrTst = &Z;
-
-    long *buf;
-    buf = malloc();
-
-    while (3 + X)
-    {
-        long T = 3 + X;
-        printf(Y);
-        Z = X + 4;
-        X = X - 1;
-    }
-
-    return (Z);
+    return (sum + sub);
 }

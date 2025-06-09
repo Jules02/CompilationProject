@@ -16,10 +16,9 @@ raiseWarnings = False
 g = Lark("""
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/|"0"
-OPBIN: /[+\\-*\\/\\>]/
+OPBIN: /[+\\-]/
 DOUBLE: /[0-9]*\\.[0-9]+([eE][+-]?[0-9]+)?/
-declaration: IDENTIFIER "*" IDENTIFIER            -> declaration
-           | IDENTIFIER IDENTIFIER                -> declaration
+declaration: IDENTIFIER ("*")? IDENTIFIER            -> declaration
 one_struct_def: "typedef" "struct" "{" (declaration ";")+ "}" IDENTIFIER ";" -> one_struct_def
 structs_def  : (one_struct_def)*                                            -> structs_def
 liste_var:                                         -> vide
@@ -29,15 +28,15 @@ expression: IDENTIFIER                             -> var
           | "malloc" "(" ")"                       -> malloc_call
           | expression OPBIN expression            -> opbin
           | NUMBER                                 -> number
-          | DOUBLE                                 -> double
-          | "(" "double" ")" expression            -> cast_double
-commande: IDENTIFIER "=" expression ";"                      -> affectation
-        | declaration ";"                                   -> decl_cmd
-        | declaration "=" expression ";"                    -> declpuisinit_cmd
+          | DOUBLE                                                          -> double
+          | "(" "double" ")" expression                                     -> cast_double
+commande: IDENTIFIER "=" expression ";"                                     -> affectation
+        | declaration ";"                                                   -> decl_cmd
+        | declaration "=" expression ";"                                    -> declpuisinit_cmd
         | IDENTIFIER IDENTIFIER ("{" expression ("," expression)* "}")? ";" -> struct_init_seq
-        | "while" "(" expression ")" "{" bloc "}"           -> while
-        | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")? -> ite
-        | "printf" "(" expression ")" ";"                   -> print
+        | "while" "(" expression ")" "{" bloc "}"                           -> while
+        | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?       -> ite
+        | "printf" "(" expression ")" ";"                                   -> print
         | "skip" ";"                                          -> skip
 bloc: (commande)*                                              -> bloc
 program: structs_def? IDENTIFIER "main" "(" liste_var ")" "{" bloc "return" "(" expression ")" ";" "}"
@@ -95,6 +94,7 @@ def asm_expression(e):
         if not symboltable.is_declared(var_name):
             raise ValueError(f"Variable '{var_name}' is not declared.")
         var_type = symboltable.get_type(var_name)
+        
         if var_type == "double":
             return f"movsd xmm0, [{var_name}]\n", "double"
         else: 
@@ -286,7 +286,6 @@ def asm_program(p):
             init_vars += asm_initialization(var_name, tipo, i)
             symboltable.initialize(var_name)
 
-    # ---------- outras declarações ----------
     for d in get_declarations(p.children[3]):
         tipo      = d.children[0].value
         var_name  = d.children[-1].value
