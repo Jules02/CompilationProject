@@ -91,7 +91,9 @@ def pp_bloc(b, indent=0):
     str_commandes = ""
     print('INSIDE PP\n', b)
     for com in b.children:
-        str_commandes += pp_commande(com, indent) + "\n"
+        result = pp_commande(com, indent)
+        if result is not None:
+            str_commandes += result + "\n"
     return str_commandes
 
 def pp_programme(p, indent=0):
