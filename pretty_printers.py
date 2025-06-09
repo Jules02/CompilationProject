@@ -1,6 +1,6 @@
 def pp_declaration(d):
     type_node = d.children[0]
-    var = d.children[1]
+    var = d.children[-1]
     return f"{type_node.value} {var.value}"
 
 def pp_expression(e):

@@ -96,22 +96,23 @@ def asm_expression(e):
             raise ValueError(f"Variable '{var_name}' is not declared.")
         var_type = symboltable.get_type(var_name)
         if var_type == "double":
-            return f"movsd xmm0, [{var_name}]", "double"
+            return f"movsd xmm0, [{var_name}]\n", "double"
         else: 
-            return f"mov rax, [{var_name}]", "long"
+            return f"mov rax, [{var_name}]\n", "long"
 
     if e.data == "addr_of":
         var_name = e.children[0].value
         if not symboltable.is_declared(var_name):
             raise ValueError(f"Variable '{var_name}' is not declared.")
-        return f"lea rax, [{var_name}]", "long"
+        return f"lea rax, [{var_name}]\n", "long"
 
     if e.data == "malloc_call":
-        # aloca 8 bytes e devolve ponteiro em rax
-        return "mov rdi, 8\ncall malloc", "long"
+        return """
+mov rdi, 8
+call malloc\n""","long"
 
     if e.data == "number":
-        return f"mov rax, {e.children[0].value}", "long"
+        return f"mov rax, {e.children[0].value}\n", "long"
 
     if e.data == "double":
         val = e.children[0].value
@@ -121,7 +122,7 @@ def asm_expression(e):
             const_name = f"LC{len(double_constants)}"
             double_constants[val] = (const_name, binary & 0xFFFFFFFF, (binary >> 32) & 0xFFFFFFFF)
         const_name = double_constants[val][0]
-        return f"movsd xmm0, [{const_name}]", "double"
+        return f"movsd xmm0, [{const_name}]\n", "double"
 
     if e.data == "cast_double":
         code, typ = asm_expression(e.children[0])
@@ -168,9 +169,9 @@ def asm_commande(c):
             return ""
         symboltable.initialize(var_name)
         if symboltable.get_type(var_name) == "double":
-            return f"{code}\nmovsd [{var_name}], xmm0"
+            return f"{code}\nmovsd [{var_name}], xmm0\n"
         else:
-            return f"{code}\nmov [{var_name}], rax"
+            return f"{code}\nmov [{var_name}], rax\n"
 
     if c.data == "decl_cmd":
         return ""
@@ -183,9 +184,9 @@ def asm_commande(c):
         code, typ = asm_expression(exp)
         symboltable.initialize(var_name)
         if type_ == "double":
-            return f"{code}\nmovsd [{var_name}], xmm0"
+            return f"{code}\nmovsd [{var_name}], xmm0\n"
         else:
-            return f"{code}\nmov [{var_name}], rax"
+            return f"{code}\nmov [{var_name}], rax\n"
 
     if c.data == "while":
         exp = c.children[0]
@@ -249,15 +250,19 @@ def asm_declaration(var_name, type_):
 
 def asm_initialization(var_name, type_, i):
     if type_ == "double":
-        return f"""mov rbx, [argv]
+        return f"""
+mov rbx, [argv]
 mov rdi, [rbx + {(i+1)*8}]
 call atof
-movsd [{var_name}], xmm0"""
-    else:  # long / ponteiro
-        return f"""mov rbx, [argv]
+movsd [{var_name}], xmm0
+"""
+    else: 
+        return f"""
+mov rbx, [argv]
 mov rdi, [rbx + {(i+1)*8}]
 call atoi
-mov [{var_name}], rax"""
+mov [{var_name}], rax
+"""
 
 def asm_program(p):
     global double_constants, struct_definitions
