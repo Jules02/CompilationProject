@@ -168,9 +168,9 @@ def asm_commande(c):
             return ""
         symboltable.initialize(var_name)
         if symboltable.get_type(var_name) == "double":
-            return f"{code}\nmovsd [{{var_name}}], xmm0"
+            return f"{code}\nmovsd [{var_name}], xmm0"
         else:
-            return f"{code}\nmov [{{var_name}}], rax"
+            return f"{code}\nmov [{var_name}], rax"
 
     if c.data == "decl_cmd":
         return ""
@@ -183,9 +183,9 @@ def asm_commande(c):
         code, typ = asm_expression(exp)
         symboltable.initialize(var_name)
         if type_ == "double":
-            return f"{code}\nmovsd [{{var_name}}], xmm0"
+            return f"{code}\nmovsd [{var_name}], xmm0"
         else:
-            return f"{code}\nmov [{{var_name}}], rax"
+            return f"{code}\nmov [{var_name}], rax"
 
     if c.data == "while":
         exp = c.children[0]
