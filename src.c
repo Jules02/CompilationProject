@@ -23,8 +23,8 @@ long main(long X, double Y, long Z)
 
     Point p;
 
-    long *ptr;
-    ptr = &Z;
+    long *ptrTst;
+    ptrTst = &Z;
 
     long *buf;
     buf = malloc();
