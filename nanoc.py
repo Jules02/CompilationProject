@@ -302,7 +302,7 @@ def asm_program(p):
     return prog_asm
 
 if __name__ == "__main__":
-    with open("simpleTypage.c", encoding="utf-8") as f:
+    with open("src.c", encoding="utf-8") as f:
         src = f.read()
     raiseWarnings = True
     ast = g.parse(src)
