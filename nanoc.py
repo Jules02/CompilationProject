@@ -195,7 +195,7 @@ def asm_commande(c):
         return f"""loop{idx}:{code}
 cmp rax, 0
 jz end{idx}
-{asm_bloc(body)}jmp loop{idx}
+{asm_bloc(body)}\njmp loop{idx}
 end{idx}: nop"""
 
     if c.data == "ite":
