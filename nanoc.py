@@ -151,7 +151,7 @@ pop rax
             code += f"{right_code}\ncvtsi2sd xmm0, rax\n"
         else:
             code += right_code + "\n"
-        code += op2asm_double[op]
+        code += f"\n{op2asm_double[op]}"
         return code, "double"
 
     if raiseWarnings:
