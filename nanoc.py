@@ -5,7 +5,7 @@ from symboltable import *
 symboltable = SymbolTable()
 import struct
 
-cpt = 0
+cpt = iter(range(1000))  # iterator for unique loop labels
 
 PRIMITIVE_TYPES = {"long": 1, "double": 1}
 struct_definitions = {}
@@ -190,7 +190,7 @@ def asm_commande(c):
     if c.data == "while":
         exp = c.children[0]
         body = c.children[1]
-        idx = cpt; cpt += 1
+        idx = next(cpt)
         code, _ = asm_expression(exp)
         return f"""loop{idx}:{code}
 cmp rax, 0
@@ -201,7 +201,7 @@ end{idx}: nop"""
     if c.data == "ite":
         exp = c.children[0]
         body_if = c.children[1]
-        idx = cpt; cpt += 1
+        idx = next(cpt)
         code, _ = asm_expression(exp)
         if len(c.children) > 2:
             body_else = c.children[2]
@@ -260,18 +260,19 @@ call atoi
 mov [{var_name}], rax"""
 
 def asm_program(p):
-    global double_constants, struct_definitions, cpt
-    double_constants.clear(); cpt = 0
+    global double_constants, struct_definitions
+    double_constants.clear()
 
     with open("moule.asm", encoding="utf-8") as f:
         prog_asm = f.read()
 
-    decl_vars = ""; init_vars = ""
+    decl_vars = ""
+    init_vars = ""
     struct_definitions = get_struct_definitions(p)
     
     for i, c in enumerate(p.children[2].children):
         type_ = c.children[0].value
-        var_name = c.children[-1].value  # ← índice final
+        var_name = c.children[-1].value 
         if type_ not in (set(PRIMITIVE_TYPES.keys()) | set(struct_definitions.keys())):
             continue
         decl_vars += asm_declaration(var_name, type_)
