@@ -11,7 +11,6 @@ PRIMITIVE_TYPES = { "long" : 8, "double" : 8 }
 struct_definitions = {}
 
 double_constants = {}
-raiseWarnings = False
 
 g = Lark("""
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
