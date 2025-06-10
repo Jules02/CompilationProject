@@ -11,6 +11,7 @@ long main(long A, long B, long C)
     p.x = 4;
     p.y = 2;
 
+    printf(A - B);
     long *ptrA;
     ptrA = &A;
 
@@ -19,14 +20,9 @@ long main(long A, long B, long C)
     buffer = &A;
     printf(buffer);
 
-    long *ptrB;
-    ptrB = &B;
-
     long sum = A + B;
-    long sub = ptrA - C;
 
     printf(sum);
-    printf(sub);
 
-    return (sum + sub);
+    return (sum);
 }

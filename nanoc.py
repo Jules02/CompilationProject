@@ -26,6 +26,7 @@ liste_var:                                         -> vide
 expression: IDENTIFIER "." IDENTIFIER              -> struct_attr_use
           | IDENTIFIER                             -> var
           | "&" IDENTIFIER                         -> addr_of
+          | "*" IDENTIFIER                         -> dereference
           | "malloc" "(" ")"                       -> malloc_call
           | expression OPBIN expression            -> opbin
           | NUMBER                                 -> number
@@ -155,6 +156,14 @@ def asm_expression(e):
             raise ValueError(f"Variable '{var_name}' is not declared.")
         return f"lea rax, [{var_name}]\n", "long" # load effective address
 
+    if e.data == "dereference":
+        var_name = e.children[0].value
+        if not symboltable.is_declared(var_name):
+            raise ValueError(f"Variable '{var_name}' is not declared.")
+        # We'll assume it's always long.
+        return f"""mov rbx, [{var_name}]
+mov rax, [rbx]""", "long"
+
     if e.data == "malloc_call":
         return """mov rdi, 8
 call malloc""", "long" # always load 8 bytes.
@@ -249,7 +258,7 @@ def asm_commande(c):
         ainfo  = struct_definitions[stype]['attributes'][attr]
         off    = ainfo['offset']
         atype  = ainfo['type']
-        code, etype = asm_expression(expr)
+        code, _ = asm_expression(expr)
         store = "movsd" if atype == "double" else "mov"
         dest  = mem(base, off)
         if atype == "double":
@@ -324,6 +333,7 @@ call printf"""
     return ""
 
 def asm_declaration(var_name, type):
+    """Generates the assembly code for a variable declaration."""
     w = 0
     if type in PRIMITIVE_TYPES.keys():
         w = PRIMITIVE_TYPES[type]
@@ -389,7 +399,7 @@ def asm_program(p):
     struct_definitions = get_struct_definitions(p)
 
     # Handle arguments for main. They are all declared and initialized
-    position = 0
+    position = 8 
     for c in p.children[2].children:
         type      = c.children[0].value
         var_name  = c.children[-1].value
@@ -442,7 +452,7 @@ def asm_program(p):
 
 
 if __name__ == "__main__":
-    with open("src.c", encoding="utf-8") as f:
+    with open("pointers.c", encoding="utf-8") as f:
         src = f.read()
     raiseWarnings = True
     ast = g.parse(src)
