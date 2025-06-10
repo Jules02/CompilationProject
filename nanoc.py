@@ -25,6 +25,7 @@ liste_var:                                         -> vide
          | declaration ("," declaration)*          -> vars
 expression: IDENTIFIER                             -> var
           | "&" IDENTIFIER                         -> addr_of
+          | IDENTIFIER"."IDENTIFIER                -> struct_attr_use
           | "malloc" "(" ")"                       -> malloc_call
           | expression OPBIN expression            -> opbin
           | NUMBER                                 -> number
@@ -143,6 +144,23 @@ call malloc\n""", "long"
 
     if e.data == "number":
         return f"mov rax, {e.children[0].value}", "long"
+    
+    if e.data == "struct_attr_use":
+        struct_name = e.children[0]
+        type_struct = symboltable.get_type(struct_name)
+        attr_name = e.children[1]
+        if type_struct in struct_definitions.keys():
+            if attr_name in struct_definitions[type_struct]['attributes'].keys():
+                attr = struct_definitions[type_struct]['attributes'][attr_name]
+                offset = attr['offset']
+                if attr['type'] == "long":
+                    return f"mov rax, [{struct_name} + {offset}]", "long"
+                elif attr['type'] == "double":
+                    return f"movsd xmm0, [{struct_name} + {offset}]", "double"
+            else :
+                raise ValueError(f"No attribute '{attr_name}' for structure '{struct_name}'.")
+        else:
+            raise ValueError(f"Structure '{struct_name}' is not declared.")
 
     if e.data == "double":
         val = e.children[0].value

@@ -1,5 +1,13 @@
+typedef struct {
+    long x;
+    long y;
+} Point;
+
 long main(long A, long B, long C)
 {
+    Point p;
+    printf(p.x);
+
     long *ptrA;
     ptrA = &A;
 
