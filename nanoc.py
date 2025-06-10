@@ -353,7 +353,7 @@ def asm_program(p):
     global double_constants, struct_definitions
     double_constants.clear()
 
-    with open("moule.asm", encoding="utf-8") as f:
+    with open("module.asm", encoding="utf-8") as f:
         prog_asm = f.read()
 
     decl_vars = ""
