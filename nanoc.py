@@ -451,7 +451,7 @@ def asm_program(p):
 
 
 if __name__ == "__main__":
-    with open("pointers.c", encoding="utf-8") as f:
+    with open("src.c", encoding="utf-8") as f:
         src = f.read()
     ast = g.parse(src)
     print(asm_program(ast))

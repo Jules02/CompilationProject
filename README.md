@@ -21,7 +21,7 @@ pip install -r requirements.txt
 2. Compilez le fichier `nanoc.py` en assembly :
 
 ```bash
-python nanoc.py > src.asm 
+python3 nanoc.py > src.asm 
 nasm -f elf64 src.asm -o src.o
 ```
 
@@ -46,33 +46,48 @@ fonctionnalité supplémentaire principale :
 
 # Ce qui a été implémenté
 
-À cette heure, et au-delà des fonctionnalités de base implémentées en classe, nous avons implémenté les fonctionnalités suivantes :
-
+À cette heure, et au-delà des fonctionnalités de base implémentées en classe,
+nous avons implémenté les fonctionnalités suivantes :
 
 ### Double
 
-Notre compilateur prend en charge le type `double` pour les nombres à virgule flottante en double précision. Les constantes de type double sont reconnues, y compris la notation scientifique (ex : 1.23e-4). 
+Notre compilateur prend en charge le type `double` pour les nombres à virgule
+flottante en double précision. Les constantes de type double sont reconnues, y
+compris la notation scientifique (ex : 1.23e-4).
 
-Les opérations arithmétiques de base (`+`, `-`) sont supportées entre doubles, ainsi qu'entre `double` et `long` avec conversion implicite si nécessaire. Les conversions explicites via le cast `(double)` sont également possibles. Les valeurs de type double sont stockées en mémoire au format IEEE 754 64 bits et manipulées à l’exécution à l’aide des registres XMM. 
+Les opérations arithmétiques de base (`+`, `-`) sont supportées entre doubles,
+ainsi qu'entre `double` et `long` avec conversion implicite si nécessaire. Les
+conversions explicites via le cast `(double)` sont également possibles. Les
+valeurs de type double sont stockées en mémoire au format IEEE 754 64 bits et
+manipulées à l’exécution à l’aide des registres XMM.
 
 L’affichage des doubles utilise le format adapté dans `printf`.
 
-
 ### Types
 
-Notre compilateur prend en charge les types statiques. Lorsqu'une variable est déclarée, elle est déclarée au sein d'une table des symboles, instance de la classe `SymbolTable`. Chaque entrée de cette table contient aussi le type associé ainsi qu'un booléen indiquant si la variable a déjà été initialisée ou non.
+Notre compilateur prend en charge les types statiques. Lorsqu'une variable est
+déclarée, elle est déclarée au sein d'une table des symboles, instance de la
+classe `SymbolTable`. Chaque entrée de cette table contient aussi le type
+associé ainsi qu'un booléen indiquant si la variable a déjà été initialisée ou
+non.
 
-Des conversions _explicites_ des `long` vers les `double` sont possibles, par exemple:
+Des conversions _explicites_ des `long` vers les `double` sont possibles, par
+exemple:
+
 ```
 long X = 5;
 double Y = 3.0;
 double Z = Y + (double) X;
 ```
 
-Des conversions _implicites_ ont aussi été implémentées. Dans l'exemple précédent, `double Z = Y + X` marcherait aussi; le type de X serait implicitement converti vers `double`, et un _warning_ serait affiché levé.
+Des conversions _implicites_ ont aussi été implémentées. Dans l'exemple
+précédent, `double Z = Y + X` marcherait aussi; le type de X serait
+implicitement converti vers `double`, et un _warning_ serait affiché levé.
 
-La fonction `main`présente un type de retour, qui pour l'instant ne peut être qu'un `long` ou un `double` (et pas une structure). Si besoin, une conversion implicite `double` vers `long` ou inversement est parfois réalisée, levant là encore un _warning_.
-
+La fonction `main`présente un type de retour, qui pour l'instant ne peut être
+qu'un `long` ou un `double` (et pas une structure). Si besoin, une conversion
+implicite `double` vers `long` ou inversement est parfois réalisée, levant là
+encore un _warning_.
 
 ### Struct
 
@@ -106,7 +121,3 @@ Il y a quatre syntax importantes à retenir pour les pointeurs :
 2. L'atribution d'une valeur à un pointeur : `p = &x;`
 3. L'accès à la valeur pointée par un pointeur : `*p`
 4. L'accès à l'adresse d'une variable : `&x`
-
-### pp_printers
-
-TODO
