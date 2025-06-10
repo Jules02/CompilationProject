@@ -69,7 +69,7 @@ def get_declarations(c):
     if c.data == "bloc":
         d = []
         for child in c.children:
-            d.extend(get_declarations(child))
+            d.extend(get_declarations(child)) # WHAT IS THIS?
         return d
     if c.data in ("decl_cmd", "declpuisinit_cmd"):
         return [c.children[0]]
@@ -102,13 +102,11 @@ def asm_expression(e):
 
     if e.data == "addr_of":
         var_name = e.children[0].value
-        if not symboltable.is_declared(var_name):
-            raise ValueError(f"Variable '{var_name}' is not declared.")
+        symboltable.is_initialized(var_name)
         return f"lea rax, [{var_name}]\n", "long"
 
     if e.data == "malloc_call":
-        return """
-mov rdi, 8
+        return """mov rdi, 8
 call malloc\n""","long"
 
     if e.data == "number":
@@ -179,7 +177,7 @@ def asm_commande(c):
     if c.data == "declpuisinit_cmd":
         declaration = c.children[0]
         type_ = declaration.children[0].value
-        var_name = declaration.children[-1].value  # ← índice final
+        var_name = declaration.children[-1].value  # ← final child is the variable name
         exp = c.children[1]
         code, typ = asm_expression(exp)
         symboltable.initialize(var_name)
@@ -269,7 +267,7 @@ def asm_program(p):
     global double_constants, struct_definitions
     double_constants.clear()
 
-    with open("moule.asm", encoding="utf-8") as f:
+    with open("module.asm", encoding="utf-8") as f:
         prog_asm = f.read()
 
     decl_vars = ""

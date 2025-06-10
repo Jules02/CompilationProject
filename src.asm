@@ -43,7 +43,6 @@ lea rax, [A]
 mov [ptrA], rax
 
 
-
 mov rdi, 8
 call malloc
 
