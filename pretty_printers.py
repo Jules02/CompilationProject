@@ -16,6 +16,8 @@ def pp_expression(e):
     # malloc()
     if e.data == "malloc_call":
         return "malloc()"
+    if e.data == "struct_attr_use":
+        return f"{e.children[0]}.{e.children[1]}"
     e_left = e.children[0]
     e_op = e.children[1]
     e_right = e.children[2]
