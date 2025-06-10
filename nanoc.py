@@ -90,8 +90,6 @@ def get_declarations(c):
         return d
     return []
 
-
-
 op2asm = {'+' : 'add rax, rbx', '-': 'sub rax, rbx'}
 op2asm_double = {'+' : 'addsd xmm0, xmm1', '-': 'subsd xmm0, xmm1'}
 
@@ -131,12 +129,11 @@ def asm_expression(e):
         var_name = e.children[0].value
         if not symboltable.is_declared(var_name):
             raise ValueError(f"Variable '{var_name}' is not declared.")
-        return f"lea rax, [{var_name}]\n", "long"
+        return f"lea rax, [{var_name}]\n", "long" # load effective address
 
     if e.data == "malloc_call":
-        return """
-mov rdi, 8
-call malloc\n""", "long"
+        return """mov rdi, 8
+call malloc""", "long" # always load 8 bytes.
 
     if e.data == "number":
         return f"mov rax, {e.children[0].value}\n", "long"
@@ -249,14 +246,17 @@ end{idx}: nop"""
             return f"""{code}
 cmp rax, 0
 jz else{idx}
-{asm_bloc(body_if)}jmp endif{idx}
+{asm_bloc(body_if)}
+jmp endif{idx}
 else{idx}: 
-{asm_bloc(body_else)}endif{idx}: nop"""
+{asm_bloc(body_else)}
+endif{idx}: nop"""
         else:
             return f"""{code}
 cmp rax, 0
 jz endif{idx}
-{asm_bloc(body_if)}endif{idx}: nop"""
+{asm_bloc(body_if)}
+endif{idx}: nop"""
 
     if c.data == "print":
         exp = c.children[0]
@@ -401,4 +401,5 @@ if __name__ == "__main__":
         src = f.read()
     raiseWarnings = True
     ast = g.parse(src)
-    print(asm_program(ast))
+    print(ast.pretty())
+    #print(asm_program(ast))
