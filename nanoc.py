@@ -314,7 +314,7 @@ mov [{var_name}], rax
             # Similar to asm_commande.affect, recursive for nested structures
             if var_type == "double":
                 return f"""mov rbx, [argv]
-mov rdi, [rbx + {position} {offset}]
+mov rdi, [rbx + {position} + {offset}]
 call atof
 movsd [{var_name}]+{offset}, xmm0
 """
