@@ -48,7 +48,15 @@ fonctionnalité supplémentaire principale :
 
 À cette heure, et au-delà des fonctionnalités de base implémentées en classe, nous avons implémenté les fonctionnalités suivantes :
 
+
 ### Double
+
+Notre compilateur prend en charge le type `double` pour les nombres à virgule flottante en double précision. Les constantes de type double sont reconnues, y compris la notation scientifique (ex : 1.23e-4). 
+
+Les opérations arithmétiques de base (`+`, `-`) sont supportées entre doubles, ainsi qu'entre `double` et `long` avec conversion implicite si nécessaire. Les conversions explicites via le cast `(double)` sont également possibles. Les valeurs de type double sont stockées en mémoire au format IEEE 754 64 bits et manipulées à l’exécution à l’aide des registres XMM. 
+
+L’affichage des doubles utilise le format adapté dans `printf`.
+
 
 ### Types
 
