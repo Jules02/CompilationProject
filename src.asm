@@ -48,14 +48,26 @@ call printf
 
 lea rax, [A]
 
-mov [ptrA]+0, rax+0
-
+mov   [ptrA], rax
 
 
 mov rdi, 8
 call malloc
+mov   [buffer], rax
 
-mov [buffer]+0, rax+0
+lea rax, [A]
+
+mov   [buffer], rax
+
+mov rax, [buffer]
+mov rdi, fmt_int
+mov rsi, rax
+xor rax, rax
+call printf
+
+lea rax, [B]
+
+mov   [ptrB], rax
 
 mov rax, [A]
 push rax
@@ -63,7 +75,7 @@ mov rax, [B]
 mov rbx, rax
 pop rax
 add rax, rbx
-mov [sum]+0, rax+0
+mov   [sum], rax
 
 mov rax, [ptrA]
 push rax
@@ -71,7 +83,7 @@ mov rax, [C]
 mov rbx, rax
 pop rax
 sub rax, rbx
-mov [sub]+0, rax+0
+mov   [sub], rax
 
 mov rax, [sum]
 mov rdi, fmt_int

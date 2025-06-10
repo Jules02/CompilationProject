@@ -419,5 +419,4 @@ if __name__ == "__main__":
         src = f.read()
     raiseWarnings = True
     ast = g.parse(src)
-    print(ast.pretty())
-    #print(asm_program(ast))
+    print(asm_program(ast))
