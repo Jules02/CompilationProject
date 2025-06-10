@@ -1,8 +1,6 @@
-# Pretty printers for our compiler
-
 def pp_declaration(d):
     type_node = d.children[0]
-    var = d.children[1]
+    var = d.children[-1]
     return f"{type_node.value} {var.value}"
 
 def pp_expression(e):
@@ -11,6 +9,13 @@ def pp_expression(e):
     if e.data == "cast_double":
         exp = e.children[0]
         return f"(double)({pp_expression(exp)})"
+    # &var
+    if e.data == "addr_of":
+        var = e.children[0]
+        return f"&{var.value}"
+    # malloc()
+    if e.data == "malloc_call":
+        return "malloc()"
     e_left = e.children[0]
     e_op = e.children[1]
     e_right = e.children[2]
@@ -84,9 +89,10 @@ def pp_struct_typedef(s):
 
 def pp_bloc(b, indent=0):
     str_commandes = ""
-    print('INSIDE PP\n', b)
     for com in b.children:
-        str_commandes += pp_commande(com, indent) + "\n"
+        result = pp_commande(com, indent)
+        if result is not None:
+            str_commandes += result + "\n"
     return str_commandes
 
 def pp_programme(p, indent=0):
@@ -101,4 +107,3 @@ def pp_programme(p, indent=0):
             str_args += pp_declaration(arg) + ", "
         str_args += pp_declaration(args.children[-1])
     return f"{pp_struct_typedef(structs)}{type_node.value} main({str_args}) {{\n{pp_bloc(bloc, indent+1)}    return ({pp_expression(exp)});\n}}"
-

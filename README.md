@@ -1,21 +1,45 @@
 Mathis ISAAC, Yuetong LU, Diogo BASSO, Jules DUPONT
 
-# Compiler
+# Compilateur
 
-This repository hosts our final assignment for the `Advanced Compilation` module.
+Le compilateur utilise le langage assembleur Linux pour compiler. Il est donc
+recommandé de l'exécuter sur un système Linux.
 
-### How to compile
+Ce projet est un compilateur minimaliste écrit en Python, qui prend en charge
+les types de base, les doubles, les structures et les pointeurs.
 
-### Features implemented
+### Comment compiler
 
-### Who did what
+1. Installez les dépendances nécessaires :
 
-Below is a table detailing who was assigned which main additional feature:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-| Feature  | Person  |
-|----------|---------|
-| types    | Jules   |
-| double   | YueTong |
-| struct   | Mathis  |
-| pointers | Diogo   |
+2. Compilez le fichier `nanoc.py` en assembly :
 
+```bash
+python nanoc.py > src.asm 
+nasm -f elf64 src.asm -o src.o
+```
+
+3. Exécutez le code d'assemblage :
+
+```bash
+gcc -no-pie src.o -o src
+./src
+```
+
+### Qui a fait quoi
+
+Vous trouverez ci-dessous un tableau détaillant qui s'est vu attribuer quelle
+fonctionnalité supplémentaire principale :
+
+| Fonctionnalité | Personne |
+| -------------- | -------- |
+| types          | Jules    |
+| double         | Yuetong  |
+| struct         | Mathis   |
+| pointeurs      | Diogo    |
