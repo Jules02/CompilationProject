@@ -132,7 +132,7 @@ def asm_expression(e):
         var_name = e.children[0].value
         if not symboltable.is_declared(var_name):
             raise ValueError(f"Variable '{var_name}' is not declared.")
-        return f"lea rax, [{var_name}]\\n", "long" # load effective address
+        return f"lea rax, [{var_name}]\n", "long" # load effective address
 
     if e.data == "dereference":
         var_name = e.children[0].value
@@ -445,7 +445,7 @@ def asm_program(p):
 
 
 if __name__ == "__main__":
-    with open("sums.c", encoding="utf-8") as f:
+    with open("pointers.c", encoding="utf-8") as f:
         src = f.read()
     raiseWarnings = True
     ast = g.parse(src)
