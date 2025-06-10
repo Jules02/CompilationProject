@@ -205,15 +205,21 @@ pop rax
 
         code = ""
         if left_type == "long":
-            code += f"{left_code}\ncvtsi2sd xmm1, rax\n"
+            code += f"{left_code}\ncvtsi2sd xmm0, rax\n"
             if raiseWarnings: print("Implicitly converting long to double")
         else:
-            code += f"{left_code}\nmovsd xmm1, xmm0\n"
+            code += f"{left_code}\n"
+            
+        code += "movsd xmm2, xmm0\n"
+        
         if right_type == "long":
-            code += f"{right_code}\ncvtsi2sd xmm0, rax\n"
+            code += f"{right_code}\ncvtsi2sd xmm1, rax\n"
             if raiseWarnings: print("Implicitly converting long to double")
         else:
-            code += right_code + "\n"
+            code += f"{right_code}\nmovsd xmm1, xmm0\n"
+        
+        code += "movsd xmm0, xmm2\n"
+        
         code += f"\n{op2asm_double[op]}"
         return code, "double"
 
@@ -452,7 +458,7 @@ def asm_program(p):
 
 
 if __name__ == "__main__":
-    with open("pointers.c", encoding="utf-8") as f:
+    with open("test_double.c", encoding="utf-8") as f:
         src = f.read()
     raiseWarnings = True
     ast = g.parse(src)
