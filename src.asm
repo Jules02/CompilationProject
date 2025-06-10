@@ -2,7 +2,9 @@ extern printf, atoi, atof, malloc
 
 section .data
 
-sum: dq 0
+num: dq 0
+ptrValHolder: dq 0
+ptrNum: dq 0
 
 argv: dq 0
 fmt_int:db "%d", 10, 0
@@ -16,20 +18,31 @@ push rbp
 mov [argv], rsi
 
 
-mov rax, 4
-push rax
-mov rax, 5
-mov rbx, rax
-pop rax
-add rax, rbx
-mov   [sum], rax
 
-mov rax, [sum]
+
+mov rax, 12345
+mov   [num], rax
+
+
+lea rax, [num]
+
+mov   [ptrNum], rax
+
+mov rax, [num]
 mov rdi, fmt_int
 mov rsi, rax
 xor rax, rax
 call printf
-mov rax, [sum]
+mov rbx, [ptrNum]
+mov rax, [rbx]
+mov   [ptrValHolder], rax
+
+mov rax, [ptrValHolder]
+mov rdi, fmt_int
+mov rsi, rax
+xor rax, rax
+call printf
+mov rax, 0
 
 pop rbp
 ret
