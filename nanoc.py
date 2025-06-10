@@ -17,30 +17,29 @@ IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/|"0"
 OPBIN: /[+\\-]/
 DOUBLE: /[0-9]*\\.[0-9]+([eE][+-]?[0-9]+)?/
-declaration: IDENTIFIER ("*")? IDENTIFIER            -> declaration
-one_struct_def: "typedef" "struct" "{" (declaration ";")+ "}" IDENTIFIER ";" -> one_struct_def
+declaration: IDENTIFIER ("*")? IDENTIFIER                                   -> declaration
+one_struct_def: "typedef" "struct" "{" (declaration ";")+ "}" IDENTIFIER ";"-> one_struct_def
 structs_def  : (one_struct_def)*                                            -> structs_def
-liste_var:                                         -> vide
-         | declaration ("," declaration)*          -> vars
-expression: IDENTIFIER "." IDENTIFIER              -> struct_attr_use
-          | IDENTIFIER                             -> var
-          | "&" IDENTIFIER                         -> addr_of
-          | "*" IDENTIFIER                         -> dereference
-          | "malloc" "(" ")"                       -> malloc_call
-          | expression OPBIN expression            -> opbin
-          | NUMBER                                 -> number
+liste_var:                                                                  -> vide
+         | declaration ("," declaration)*                                   -> vars
+expression: IDENTIFIER "." IDENTIFIER                                       -> struct_attr_use
+          | IDENTIFIER                                                      -> var
+          | "&" IDENTIFIER                                                  -> addr_of
+          | "*" IDENTIFIER                                                  -> dereference
+          | "malloc" "(" ")"                                                -> malloc_call
+          | expression OPBIN expression                                     -> opbin
+          | NUMBER                                                          -> number
           | DOUBLE                                                          -> double
           | "(" "double" ")" expression                                     -> cast_double
 commande: IDENTIFIER "." IDENTIFIER "=" expression ";"                      -> struct_attr_affect
         | IDENTIFIER "=" expression ";"                                     -> affectation
         | declaration ";"                                                   -> decl_cmd
         | declaration "=" expression ";"                                    -> declpuisinit_cmd
-        | IDENTIFIER IDENTIFIER ("{" expression ("," expression)* "}")? ";" -> struct_init_seq
         | "while" "(" expression ")" "{" bloc "}"                           -> while
         | "if" "(" expression ")" "{" bloc "}" ("else" "{" bloc "}")?       -> ite
         | "printf" "(" expression ")" ";"                                   -> print
-        | "skip" ";"                                          -> skip
-bloc: (commande)*                                              -> bloc
+        | "skip" ";"                                                        -> skip
+bloc: (commande)*                                                           -> bloc
 program: structs_def? IDENTIFIER "main" "(" liste_var ")" "{" bloc "return" "(" expression ")" ";" "}"
 %import common.WS
 %ignore WS
