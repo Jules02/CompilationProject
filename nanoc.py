@@ -26,6 +26,7 @@ liste_var:                                         -> vide
 expression: IDENTIFIER "." IDENTIFIER              -> struct_attr_use
           | IDENTIFIER                             -> var
           | "&" IDENTIFIER                         -> addr_of
+          | "*" IDENTIFIER                         -> dereference
           | "malloc" "(" ")"                       -> malloc_call
           | expression OPBIN expression            -> opbin
           | NUMBER                                 -> number
@@ -131,7 +132,15 @@ def asm_expression(e):
         var_name = e.children[0].value
         if not symboltable.is_declared(var_name):
             raise ValueError(f"Variable '{var_name}' is not declared.")
-        return f"lea rax, [{var_name}]\n", "long" # load effective address
+        return f"lea rax, [{var_name}]\\n", "long" # load effective address
+
+    if e.data == "dereference":
+        var_name = e.children[0].value
+        if not symboltable.is_declared(var_name):
+            raise ValueError(f"Variable '{var_name}' is not declared.")
+        # We'll assume it's always long.
+        return f"""mov rbx, [{var_name}]
+mov rax, [rbx]""", "long"
 
     if e.data == "malloc_call":
         return """mov rdi, 8
