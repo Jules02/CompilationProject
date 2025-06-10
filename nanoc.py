@@ -243,7 +243,7 @@ def asm_commande(c):
         ainfo  = struct_definitions[stype]['attributes'][attr]
         off    = ainfo['offset']
         atype  = ainfo['type']
-        code, etype = asm_expression(expr)
+        code, _ = asm_expression(expr)
         store = "movsd" if atype == "double" else "mov"
         dest  = mem(base, off)
         if atype == "double":
@@ -317,6 +317,7 @@ call printf"""
     return ""
 
 def asm_declaration(var_name, type):
+    """Generates the assembly code for a variable declaration."""
     w = 0
     if type in PRIMITIVE_TYPES.keys():
         w = PRIMITIVE_TYPES[type]
@@ -382,7 +383,7 @@ def asm_program(p):
     struct_definitions = get_struct_definitions(p)
 
     # Handle arguments for main. They are all declared and initialized
-    position = 0
+    position = 8 
     for c in p.children[2].children:
         type      = c.children[0].value
         var_name  = c.children[-1].value
@@ -435,7 +436,7 @@ def asm_program(p):
 
 
 if __name__ == "__main__":
-    with open("src.c", encoding="utf-8") as f:
+    with open("sums.c", encoding="utf-8") as f:
         src = f.read()
     raiseWarnings = True
     ast = g.parse(src)
