@@ -108,7 +108,7 @@ def asm_expression(e):
             if attr_type == "double":
                 a += f"movsd xmm0, {mem(container_name, off)}\n"
             elif attr_type == "long":
-                a += f"mov   rax, {mem(container_name, off)}\n"
+                a += f"mov rax, {mem(container_name, off)}\n"
             else:
                 a += push_structure(container_name, attr_type, off)
         return a
@@ -215,10 +215,6 @@ def asm_commande(c):
         # TODO: handle case when typ is not var_type
         symboltable.initialize(var_name)
         return code + "\n" + affect(var_type, var_name, 0)
-
-    if c.data == "decl_cmd":
-        # All declarations were already made
-        return ""
 
     if c.data == "declpuisinit_cmd":
         # Variable was already declared, we just need to initialize it

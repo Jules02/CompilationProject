@@ -18,14 +18,13 @@ long main(long A, long B, long C)
     long *buffer;
     buffer = malloc();
     buffer = &A;
+    printf(buffer);
 
     long *ptrB;
     ptrB = &B;
 
     long sum = A + B;
     long sub = ptrA - C;
-
-    Ligne line2 = line;
 
     printf(sum);
     printf(sub);

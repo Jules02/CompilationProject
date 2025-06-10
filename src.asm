@@ -5,13 +5,11 @@ section .data
 A: dq 0
 B: dq 0
 C: dq 0
-line: dq 0, 0, 0, 0
 ptrA: dq 0
 buffer: dq 0
 ptrB: dq 0
 sum: dq 0
 sub: dq 0
-line2: dq 0, 0, 0, 0
 
 argv: dq 0
 fmt_int:db "%d", 10, 0
@@ -39,22 +37,6 @@ mov rbx, [argv]
 mov rdi, [rbx + 16]
 call atoi
 mov [C], rax
-mov rbx, [argv]
-mov rdi, [rbx + 24]
-call atoi
-mov   [line], rax
-mov rbx, [argv]
-mov rdi, [rbx + 32]
-call atoi
-mov   [line+8], rax
-mov rbx, [argv]
-mov rdi, [rbx + 40]
-call atoi
-mov   [line+16], rax
-mov rbx, [argv]
-mov rdi, [rbx + 48]
-call atoi
-mov   [line+24], rax
 
 
 lea rax, [A]
@@ -72,6 +54,11 @@ lea rax, [A]
 
 mov   [buffer], rax
 
+mov rax, [buffer]
+mov rdi, fmt_int
+mov rsi, rax
+xor rax, rax
+call printf
 
 lea rax, [B]
 
@@ -92,16 +79,6 @@ mov rbx, rax
 pop rax
 sub rax, rbx
 mov   [sub], rax
-
-mov   rax, [line]
-mov   rax, [line+8]
-mov   rax, [line+16]
-mov   rax, [line+24]
-
-mov   [line2], rax
-mov   [line2+8], rax
-mov   [line2+16], rax
-mov   [line2+24], rax
 
 mov rax, [sum]
 mov rdi, fmt_int
