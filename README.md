@@ -29,8 +29,10 @@ nasm -f elf64 src.asm -o src.o
 
 ```bash
 gcc -no-pie src.o -o src
-./src
+./src 1 2 3
 ```
+
+où `1`, `2`, `3` sont des arguments passés au programme.
 
 ### Qui a fait quoi
 
@@ -121,3 +123,32 @@ Il y a quatre syntax importantes à retenir pour les pointeurs :
 2. L'atribution d'une valeur à un pointeur : `p = &x;`
 3. L'accès à la valeur pointée par un pointeur : `*p`
 4. L'accès à l'adresse d'une variable : `&x`
+5. La déréférenciation d'un pointeur : `*p = 5;`
+6. Pointer vers une structure : `struct_name *ptr;` []
+
+> [!TIP]
+> Nous savons que la syntaxe correcte est `tst->name = 4`, mais nous avons
+> implementé `test.num = 4` pour simplicité.
+
+C'est impossible, pourtant, de :
+
+1. Pointeurs vers le double ne marche pas.
+
+```c
+double d_num = 12.34;
+double *ptrDNum;
+ptrDNum = &d_num;
+```
+
+2. Appeller malloc avec un sizeof.
+
+```c
+long *ptrLong;
+ptrLong = malloc(sizeof(long));
+```
+
+3. Double déréférencement
+
+```c
+long **ptrLong;
+```

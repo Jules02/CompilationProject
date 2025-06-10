@@ -13,7 +13,7 @@ struct_definitions = {}
 double_constants = {}
 
 g = Lark("""
-IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
+IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/
 NUMBER: /[1-9][0-9]*/|"0"
 OPBIN: /[+\\-]/
 DOUBLE: /[0-9]*\\.[0-9]+([eE][+-]?[0-9]+)?/
@@ -450,7 +450,7 @@ def asm_program(p):
 
 
 if __name__ == "__main__":
-    with open("src.c", encoding="utf-8") as f:
+    with open("ex_pointers.c", encoding="utf-8") as f:
         src = f.read()
     ast = g.parse(src)
     print(asm_program(ast))
