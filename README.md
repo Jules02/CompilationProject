@@ -128,6 +128,7 @@ Afin de tester ces différentes fonctionnalités, vous pouvez par exemple compil
 Ci-dessous, on liste une série de fonctionnalités qui n'ont à cette heure pas encore été implémentées dans notre compilateur.
 
 - les opérations binaires entre structures. Par exemple, même si `p1` et `p2` sont deux `Point`, on ne peut pas encore écrire `p1+p2` pour obtenir le point dont les coordonnées sont les sommes des coordonnées respectives.
-- accéder aux attributs d'une structure imbriquée. Les structures ont été définies 
+- accéder aux attributs d'une structure imbriquée. Les structures ont été définies de telle sorte à accepter l'imbrication (on peut par exemple définir une structure `Ligne` comme en cours, la déclarer et l'affecter), mais la grammaire ne permet pas encore d'accéder aux attributs des sous-structures (par exemple, on ne peut pas écrire `l.src.x` où `l` est une `Ligne`)
+- 
 
 Dans le fichier [fail.c](fail.c), on liste certaines de ces instructions qui ne sont pas encore autorisées avec notre compilateur.
