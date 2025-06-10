@@ -4,16 +4,12 @@ typedef struct
     long y;
 } Point;
 
-typedef struct
-{
-    Point src;
-    Point tgt;
-} Ligne;
-
 long main(long A, long B, long C)
 {
     Point p;
-    printf(p.x);
+
+    p.x = 4;
+    p.y = 2;
 
     long *ptrA;
     ptrA = &A;

@@ -1,0 +1,97 @@
+program
+  structs_def
+    one_struct_def
+      declaration
+        long
+        x
+      declaration
+        long
+        y
+      Point
+    one_struct_def
+      declaration
+        Point
+        src
+      declaration
+        Point
+        tgt
+      Ligne
+  long
+  vars
+    declaration
+      long
+      A
+    declaration
+      long
+      B
+    declaration
+      long
+      C
+  bloc
+    decl_cmd
+      declaration
+        Point
+        p
+    print
+      struct_attr_use
+        p
+        x
+    struct_attr_affect
+      p
+      x
+      number	4
+    print
+      struct_attr_use
+        p
+        x
+    decl_cmd
+      declaration
+        long
+        ptrA
+    affectation
+      ptrA
+      addr_of	A
+    decl_cmd
+      declaration
+        long
+        buffer
+    affectation
+      buffer
+      malloc_call
+    affectation
+      buffer
+      addr_of	A
+    print
+      var	buffer
+    decl_cmd
+      declaration
+        long
+        ptrB
+    affectation
+      ptrB
+      addr_of	B
+    declpuisinit_cmd
+      declaration
+        long
+        sum
+      opbin
+        var	A
+        +
+        var	B
+    declpuisinit_cmd
+      declaration
+        long
+        sub
+      opbin
+        var	ptrA
+        -
+        var	C
+    print
+      var	sum
+    print
+      var	sub
+  opbin
+    var	sum
+    +
+    var	sub
+

@@ -23,15 +23,16 @@ one_struct_def: "typedef" "struct" "{" (declaration ";")+ "}" IDENTIFIER ";" -> 
 structs_def  : (one_struct_def)*                                            -> structs_def
 liste_var:                                         -> vide
          | declaration ("," declaration)*          -> vars
-expression: IDENTIFIER                             -> var
+expression: IDENTIFIER "." IDENTIFIER              -> struct_attr_use
+          | IDENTIFIER                             -> var
           | "&" IDENTIFIER                         -> addr_of
-          | IDENTIFIER"."IDENTIFIER                -> struct_attr_use
           | "malloc" "(" ")"                       -> malloc_call
           | expression OPBIN expression            -> opbin
           | NUMBER                                 -> number
           | DOUBLE                                                          -> double
           | "(" "double" ")" expression                                     -> cast_double
-commande: IDENTIFIER "=" expression ";"                                     -> affectation
+commande: IDENTIFIER "." IDENTIFIER "=" expression ";"                      -> struct_attr_affect
+        | IDENTIFIER "=" expression ";"                                     -> affectation
         | declaration ";"                                                   -> decl_cmd
         | declaration "=" expression ";"                                    -> declpuisinit_cmd
         | IDENTIFIER IDENTIFIER ("{" expression ("," expression)* "}")? ";" -> struct_init_seq
@@ -230,6 +231,25 @@ def asm_commande(c):
         # TODO: handle case when typ is not var_type
         symboltable.initialize(var_name)
         return code + "\n" + affect(var_type, var_name, 0)
+    
+    # p.x = <expr>;
+    if c.data == "struct_attr_affect":
+        base  = c.children[0].value
+        attr  = c.children[1].value
+        expr  = c.children[2]
+        if not symboltable.is_declared(base):
+            raise ValueError(f"Variável '{base}' não declarada")
+        stype = symboltable.get_type(base)
+        ainfo  = struct_definitions[stype]['attributes'][attr]
+        off    = ainfo['offset']
+        atype  = ainfo['type']
+        code, etype = asm_expression(expr)
+        store = "movsd" if atype == "double" else "mov"
+        dest  = mem(base, off)
+        if atype == "double":
+            return f"{code}\n{store} {dest}, xmm0"
+        else:
+            return f"{code}\n{store} {dest}, rax"
 
     if c.data == "declpuisinit_cmd":
         # Variable was already declared, we just need to initialize it
