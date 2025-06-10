@@ -3,9 +3,9 @@ from pretty_printers import *
 from symboltable import *
 
 symboltable = SymbolTable()
-import struct
+import struct                                       # only for the pack/unpack python utilities
 
-cpt = iter(range(1000))  # iterator for unique loop labels
+cpt = iter(range(1000))                      # iterator for unique loop labels
 
 PRIMITIVE_TYPES = { "long" : 8, "double" : 8 }
 struct_definitions = {}
@@ -52,6 +52,9 @@ def mem(var, off):
 
 def get_struct_definitions(p):
     # Reads typedefs in the preamble
+    # Returns a dictionary 'structs' such that:
+    #     structs["<STRUCT_NAME>"] = {'attributes' : {'<ATTR1_NAME>' : {'type' : '<ATTR1_TYPE>', 'offset' : '<ATTR1_OFFSET>}, ...},
+    #                                                           'size' : '<STRUCT_SIZE>'}
     structs = {}
     for struct in p.children[0].children:
         struct_name = struct.children[-1].value
@@ -67,8 +70,7 @@ def get_struct_definitions(p):
             elif attr_type in PRIMITIVE_TYPES.keys() :
                 attr_size = PRIMITIVE_TYPES[attr_type]
             else :
-                if raiseWarnings : print(f"Defining structure {struct_name} with unknown type for attribute {attr_name}")
-                attr_size = 8
+                raise ValueError(f"In definition of structure {struct_name}, attribute {attr_name} has invalid type ({attr_type}).")
             struct_def["size"] += attr_size
             offset += attr_size
         structs[struct_name] = struct_def
@@ -128,11 +130,31 @@ def asm_expression(e):
         else:
             raise ValueError(f"Variable '{var_name}' is not declared.")
 
+    if e.data == "struct_attr_use":
+        struct_name = e.children[0]
+        type_struct = symboltable.get_type(struct_name)
+        attr_name = e.children[1]
+        if symboltable.is_declared(struct_name):
+            if attr_name in struct_definitions[type_struct]['attributes'].keys():
+                attr = struct_definitions[type_struct]['attributes'][attr_name]
+                offset = attr['offset']
+                if attr['type'] == "long":
+                    return f"mov rax, [{struct_name} + {offset}]", "long"
+                elif attr['type'] == "double":
+                    return f"movsd xmm0, [{struct_name} + {offset}]", "double"
+                else:
+                    # TODO: handle nested structures
+                    return ""
+            else:
+                raise ValueError(f"No attribute '{attr_name}' for structure '{struct_name}'.")
+        else:
+            raise ValueError(f"Structure '{struct_name}' is not declared.")
+
     if e.data == "addr_of":
         var_name = e.children[0].value
         if not symboltable.is_declared(var_name):
             raise ValueError(f"Variable '{var_name}' is not declared.")
-        return f"lea rax, [{var_name}]\\n", "long" # load effective address
+        return f"lea rax, [{var_name}]\n", "long" # load effective address
 
     if e.data == "dereference":
         var_name = e.children[0].value
@@ -148,23 +170,6 @@ call malloc""", "long" # always load 8 bytes.
 
     if e.data == "number":
         return f"mov rax, {e.children[0].value}", "long"
-    
-    if e.data == "struct_attr_use":
-        struct_name = e.children[0]
-        type_struct = symboltable.get_type(struct_name)
-        attr_name = e.children[1]
-        if type_struct in struct_definitions.keys():
-            if attr_name in struct_definitions[type_struct]['attributes'].keys():
-                attr = struct_definitions[type_struct]['attributes'][attr_name]
-                offset = attr['offset']
-                if attr['type'] == "long":
-                    return f"mov rax, [{struct_name} + {offset}]", "long"
-                elif attr['type'] == "double":
-                    return f"movsd xmm0, [{struct_name} + {offset}]", "double"
-            else :
-                raise ValueError(f"No attribute '{attr_name}' for structure '{struct_name}'.")
-        else:
-            raise ValueError(f"Structure '{struct_name}' is not declared.")
 
     if e.data == "double":
         val = e.children[0].value
@@ -186,6 +191,9 @@ call malloc""", "long" # always load 8 bytes.
         left_code, left_type = asm_expression(e.children[0])
         op = e.children[1].value
         right_code, right_type = asm_expression(e.children[2])
+
+        if (left_type not in ["double", "long"]) or (right_type not in ["double", "long"]) :
+            raise TypeError("Binary operations between two non double or long variables is not supported.")
 
         if left_type == right_type == "long":
             return f"""{left_code}
@@ -228,26 +236,24 @@ def asm_commande(c):
                 a += affect(attr_type, var_name, offset + attr_offset)
             return a
 
-
     if c.data == "affectation":
         var_name = c.children[0].value
         exp = c.children[1]
         code, typ = asm_expression(exp)
         if not symboltable.is_declared(var_name):
-            print(f"Trying to affect a value to {var_name}, which was not declared. Ignoring.")
-            return ""
+            raise ValueError(f"Trying to affect a value to {var_name}, which was not declared. Ignoring.")
         var_type = symboltable.get_type(var_name)
-        # TODO: handle case when typ is not var_type
+        if raiseWarnings and var_type != typ:
+            print(f"Affecting a {typ} to a {var_type}, behavior may be undesired.")
         symboltable.initialize(var_name)
         return code + "\n" + affect(var_type, var_name, 0)
-    
-    # p.x = <expr>;
+
     if c.data == "struct_attr_affect":
         base  = c.children[0].value
         attr  = c.children[1].value
         expr  = c.children[2]
         if not symboltable.is_declared(base):
-            raise ValueError(f"Variável '{base}' não declarada")
+            raise ValueError(f"Variable '{base}' is not declared")
         stype = symboltable.get_type(base)
         ainfo  = struct_definitions[stype]['attributes'][attr]
         off    = ainfo['offset']
@@ -267,7 +273,8 @@ def asm_commande(c):
         var_name = declaration.children[-1].value
         exp = c.children[1]
         code, typ = asm_expression(exp)
-        # TODO: handle case when typ is not var_type
+        if raiseWarnings and var_type != typ:
+            print(f"Affecting a {typ} to a {var_type}, behavior may be undesired.")
         return code + "\n" + affect(var_type, var_name, 0)
 
     if c.data == "while":
@@ -445,7 +452,7 @@ def asm_program(p):
 
 
 if __name__ == "__main__":
-    with open("sums.c", encoding="utf-8") as f:
+    with open("pointers.c", encoding="utf-8") as f:
         src = f.read()
     raiseWarnings = True
     ast = g.parse(src)
