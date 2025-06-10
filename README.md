@@ -2,13 +2,14 @@ Mathis ISAAC, Yuetong LU, Diogo BASSO, Jules DUPONT
 
 # Compilateur
 
-Le compilateur utilise le langage assembleur Linux pour compiler. Il est donc
-recommandé de l'exécuter sur un système Linux.
+> [!WARNING]\
+> Le compilateur utilise le langage assembleur Linux pour compiler. Il est donc
+> recommandé de l'exécuter sur un système Linux.
 
 Ce projet est un compilateur minimaliste écrit en Python, qui prend en charge
 les types de base, les doubles, les structures et les pointeurs.
 
-### Comment compiler
+## Comment compiler
 
 1. Installez les dépendances nécessaires :
 
@@ -21,7 +22,7 @@ pip install -r requirements.txt
 2. Compilez le fichier `nanoc.py` en assembly :
 
 ```bash
-python nanoc.py > src.asm 
+python3 nanoc.py > src.asm 
 nasm -f elf64 src.asm -o src.o
 ```
 
@@ -29,10 +30,12 @@ nasm -f elf64 src.asm -o src.o
 
 ```bash
 gcc -no-pie src.o -o src
-./src
+./src 1 2 3
 ```
 
-### Qui a fait quoi
+où `1`, `2`, `3` sont des arguments passés au programme.
+
+## Qui a fait quoi
 
 Vous trouverez ci-dessous un tableau détaillant qui s'est vu attribuer quelle
 fonctionnalité supplémentaire principale :
@@ -44,35 +47,50 @@ fonctionnalité supplémentaire principale :
 | struct         | Mathis   |
 | pointeurs      | Diogo    |
 
-# Ce qui a été implémenté
+## Ce qui a été implémenté
 
-À cette heure, et au-delà des fonctionnalités de base implémentées en classe, nous avons implémenté les fonctionnalités suivantes :
-
+À cette heure, et au-delà des fonctionnalités de base implémentées en classe,
+nous avons implémenté les fonctionnalités suivantes :
 
 ### Double
 
-Notre compilateur prend en charge le type `double` pour les nombres à virgule flottante en double précision. Les constantes de type double sont reconnues, y compris la notation scientifique (ex : 1.23e-4). 
+Notre compilateur prend en charge le type `double` pour les nombres à virgule
+flottante en double précision. Les constantes de type double sont reconnues, y
+compris la notation scientifique (ex : 1.23e-4).
 
-Les opérations arithmétiques de base (`+`, `-`) sont supportées entre doubles, ainsi qu'entre `double` et `long` avec conversion implicite si nécessaire. Les conversions explicites via le cast `(double)` sont également possibles. Les valeurs de type double sont stockées en mémoire au format IEEE 754 64 bits et manipulées à l’exécution à l’aide des registres XMM. 
+Les opérations arithmétiques de base (`+`, `-`) sont supportées entre doubles,
+ainsi qu'entre `double` et `long` avec conversion implicite si nécessaire. Les
+conversions explicites via le cast `(double)` sont également possibles. Les
+valeurs de type double sont stockées en mémoire au format IEEE 754 64 bits et
+manipulées à l’exécution à l’aide des registres XMM.
 
 L’affichage des doubles utilise le format adapté dans `printf`.
 
-
 ### Types
 
-Notre compilateur prend en charge les types statiques. Lorsqu'une variable est déclarée, elle est déclarée au sein d'une table des symboles, instance de la classe `SymbolTable`. Chaque entrée de cette table contient aussi le type associé ainsi qu'un booléen indiquant si la variable a déjà été initialisée ou non.
+Notre compilateur prend en charge les types statiques. Lorsqu'une variable est
+déclarée, elle est déclarée au sein d'une table des symboles, instance de la
+classe `SymbolTable`. Chaque entrée de cette table contient aussi le type
+associé ainsi qu'un booléen indiquant si la variable a déjà été initialisée ou
+non.
 
-Des conversions _explicites_ des `long` vers les `double` sont possibles, par exemple:
+Des conversions _explicites_ des `long` vers les `double` sont possibles, par
+exemple:
+
 ```
 long X = 5;
 double Y = 3.0;
 double Z = Y + (double) X;
 ```
 
-Des conversions _implicites_ ont aussi été implémentées. Dans l'exemple précédent, `double Z = Y + X` marcherait aussi; le type de X serait implicitement converti vers `double`, et un _warning_ serait affiché si l'option `raiseWarnings` vaut `True`.
+Des conversions _implicites_ ont aussi été implémentées. Dans l'exemple
+précédent, `double Z = Y + X` marcherait aussi; le type de X serait
+implicitement converti vers `double`, et un _warning_ serait affiché levé.
 
-La fonction `main`présente un type de retour, qui pour l'instant ne peut être qu'un `long` ou un `double` (et pas une structure). Si besoin, une conversion implicite `double` vers `long` ou inversement est parfois réalisée, affichant là encore un _warning_ si l'option `raiseWarnings` est à `True`.
-
+La fonction `main`présente un type de retour, qui pour l'instant ne peut être
+qu'un `long` ou un `double` (et pas une structure). Si besoin, une conversion
+implicite `double` vers `long` ou inversement est parfois réalisée, levant là
+encore un _warning_.
 
 ### Struct
 
@@ -107,6 +125,46 @@ Il y a quatre syntax importantes à retenir pour les pointeurs :
 3. L'accès à la valeur pointée par un pointeur : `*p`
 4. L'accès à l'adresse d'une variable : `&x`
 
-### pp_printers
+> [!TIP]
+> Nous savons que la syntaxe correcte est `tst->name = 4`, mais nous avons
+> implementé `test.num = 4` pour simplicité.
 
-TODO
+C'est impossible, pourtant, de :
+
+1. Pointeurs vers le double ne marche pas.
+
+```c
+double d_num = 12.34;
+double *ptrDNum;
+ptrDNum = &d_num;
+```
+
+2. Appeller malloc avec un sizeof.
+
+```c
+long *ptrLong;
+ptrLong = malloc(sizeof(long));
+```
+
+3. Double déréférencement
+
+```c
+long **ptrLong;
+```
+
+Afin de tester ces différentes fonctionnalités, vous pouvez par exemple compiler
+le fichier [src.c](src.c).
+
+## Ce qui n'a pas été implémenté
+
+Ci-dessous, on liste une série de fonctionnalités qui n'ont à cette heure pas
+encore été implémentées dans notre compilateur.
+
+- les opérations binaires entre structures. Par exemple, même si `p1` et `p2`
+  sont deux `Point`, on ne peut pas encore écrire `p1+p2` pour obtenir le point
+  dont les coordonnées sont les sommes des coordonnées respectives.
+- accéder aux attributs d'une structure imbriquée. Les structures ont été
+  définies
+
+Dans le fichier [fail.c](fail.c), on liste certaines de ces instructions qui ne
+sont pas encore autorisées avec notre compilateur.

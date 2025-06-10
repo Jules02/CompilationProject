@@ -1,28 +1,36 @@
 typedef struct
 {
     long x;
-    long y;
+    double y;
 } Point;
 
 long main(long A, long B, long C)
 {
+    long sum = A + C;
+    printf(sum);
+    printf(A - B);
+
     Point p;
 
-    p.x = 4;
-    p.y = 2;
+    printf(p.x);
+    printf(p.y);
 
-    printf(A - B);
+    p.x = 4;
+    p.y = 2.0;
+
+    printf(p.x);
+    printf(p.y);
+
     long *ptrA;
     ptrA = &A;
+
+    printf(ptrA);
+    printf(*ptrA);
 
     long *buffer;
     buffer = malloc();
     buffer = &A;
     printf(buffer);
-
-    long sum = A + B;
-
-    printf(sum);
 
     return (sum);
 }
