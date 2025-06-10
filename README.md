@@ -116,6 +116,15 @@ Il est possible de définir une structure dont un ou plusieurs attributs sont eu
 mêmes des structures. Cependant, il ne sera pas possible d'utiliser ces
 attributs.
 
+### Pointeurs
+
+Il y a quatre syntax importantes à retenir pour les pointeurs :
+
+1. La déclaration d'un pointeur : `long *p;`
+2. L'atribution d'une valeur à un pointeur : `p = &x;`
+3. L'accès à la valeur pointée par un pointeur : `*p`
+4. L'accès à l'adresse d'une variable : `&x`
+
 > [!TIP]
 > Nous savons que la syntaxe correcte est `tst->name = 4`, mais nous avons
 > implementé `test.num = 4` pour simplicité.
@@ -142,15 +151,6 @@ ptrLong = malloc(sizeof(long));
 ```c
 long **ptrLong;
 ```
-
-### Pointeurs
-
-Il y a quatre syntax importantes à retenir pour les pointeurs :
-
-1. La déclaration d'un pointeur : `long *p;`
-2. L'atribution d'une valeur à un pointeur : `p = &x;`
-3. L'accès à la valeur pointée par un pointeur : `*p`
-4. L'accès à l'adresse d'une variable : `&x`
 
 Afin de tester ces différentes fonctionnalités, vous pouvez par exemple compiler
 le fichier [src.c](src.c).
