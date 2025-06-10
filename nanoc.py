@@ -317,13 +317,13 @@ mov [{var_name}], rax
             # Similar to asm_commande.affect, recursive for nested structures
             if var_type == "double":
                 return f"""mov rbx, [argv]
-mov rdi, [rbx + {offset}]
+mov rdi, [rbx + {position} {offset}]
 call atof
 movsd [{var_name}]+{offset}, xmm0
 """
             elif var_type == "long":
                 return f"""mov rbx, [argv]
-mov rdi, [rbx + {offset}]
+mov rdi, [rbx + {position} + {offset}]
 call atoi
 mov [{var_name}]+{offset}, rax
 """
@@ -337,7 +337,7 @@ mov [{var_name}]+{offset}, rax
                     a += affect_init(attr_type, var_name, offset + attr_offset)
                 return a
 
-        initialization += affect_init(type, var_name, position)
+        initialization += affect_init(type, var_name, 0)
         position += struct_definitions[type]["size"]
     return initialization
 

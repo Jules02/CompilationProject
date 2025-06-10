@@ -1,4 +1,14 @@
-long main(long A, long B, long C)
+typedef struct {
+    long x;
+    long y;
+} Point;
+
+typedef struct {
+    Point src;
+    Point tgt;
+} Ligne;
+
+long main(long A, long B, long C, Ligne line)
 {
     long *ptrA;
     ptrA = &A;
@@ -8,6 +18,8 @@ long main(long A, long B, long C)
 
     long sum = A + B;
     long sub = ptrA - C;
+
+    Ligne line2 = line;
 
     printf(sum);
     printf(sub);
