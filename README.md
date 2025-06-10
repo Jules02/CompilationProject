@@ -2,13 +2,13 @@ Mathis ISAAC, Yuetong LU, Diogo BASSO, Jules DUPONT
 
 # Compilateur
 
-Le compilateur utilise le langage assembleur Linux pour compiler. Il est donc
-recommandé de l'exécuter sur un système Linux.
+> [!WARNING]  
+> Le compilateur utilise le langage assembleur Linux pour compiler. Il est donc recommandé de l'exécuter sur un système Linux.
 
 Ce projet est un compilateur minimaliste écrit en Python, qui prend en charge
 les types de base, les doubles, les structures et les pointeurs.
 
-### Comment compiler
+## Comment compiler
 
 1. Installez les dépendances nécessaires :
 
@@ -32,10 +32,9 @@ gcc -no-pie src.o -o src
 ./src
 ```
 
-### Qui a fait quoi
+## Qui a fait quoi
 
-Vous trouverez ci-dessous un tableau détaillant qui s'est vu attribuer quelle
-fonctionnalité supplémentaire principale :
+Vous trouverez ci-dessous un tableau détaillant qui s'est vu attribuer quelle fonctionnalité supplémentaire principale :
 
 | Fonctionnalité | Personne |
 | -------------- | -------- |
@@ -44,12 +43,12 @@ fonctionnalité supplémentaire principale :
 | struct         | Mathis   |
 | pointeurs      | Diogo    |
 
-# Ce qui a été implémenté
+## Ce qui a été implémenté
 
 À cette heure, et au-delà des fonctionnalités de base implémentées en classe,
 nous avons implémenté les fonctionnalités suivantes :
 
-### Double
+### double
 
 Notre compilateur prend en charge le type `double` pour les nombres à virgule
 flottante en double précision. Les constantes de type double sont reconnues, y
@@ -121,3 +120,14 @@ Il y a quatre syntax importantes à retenir pour les pointeurs :
 2. L'atribution d'une valeur à un pointeur : `p = &x;`
 3. L'accès à la valeur pointée par un pointeur : `*p`
 4. L'accès à l'adresse d'une variable : `&x`
+
+Afin de tester ces différentes fonctionnalités, vous pouvez par exemple compiler le fichier [src.c](src.c).
+
+## Ce qui n'a pas été implémenté
+
+Ci-dessous, on liste une série de fonctionnalités qui n'ont à cette heure pas encore été implémentées dans notre compilateur.
+
+- les opérations binaires entre structures. Par exemple, même si `p1` et `p2` sont deux `Point`, on ne peut pas encore écrire `p1+p2` pour obtenir le point dont les coordonnées sont les sommes des coordonnées respectives.
+- accéder aux attributs d'une structure imbriquée. Les structures ont été définies 
+
+Dans le fichier [fail.c](fail.c), on liste certaines de ces instructions qui ne sont pas encore autorisées avec notre compilateur.
