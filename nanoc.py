@@ -139,7 +139,7 @@ def asm_expression(e):
     if e.data == "malloc_call":
         return """
 mov rdi, 8
-call malloc\n""","long"
+call malloc\n""", "long"
 
     if e.data == "number":
         return f"mov rax, {e.children[0].value}", "long"
