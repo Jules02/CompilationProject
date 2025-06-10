@@ -5,14 +5,15 @@ typedef struct
 
 long main()
 {
-    long num;
+    long **test;
+    long tstNumLong;
     long ptrValHolder;
 
-    num = 12345;
-    printf(num);
+    tstNumLong = 12345;
+    printf(tstNumLong);
 
     long *ptrNum;
-    ptrNum = &num;
+    ptrNum = &tstNumLong;
 
     ptrValHolder = *ptrNum;
     printf(ptrValHolder);

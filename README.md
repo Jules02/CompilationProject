@@ -29,8 +29,10 @@ nasm -f elf64 src.asm -o src.o
 
 ```bash
 gcc -no-pie src.o -o src
-./src
+./src 1 2 3
 ```
+
+où `1`, `2`, `3` sont des arguments passés au programme.
 
 ## Qui a fait quoi
 
@@ -121,14 +123,41 @@ Il y a quatre syntax importantes à retenir pour les pointeurs :
 3. L'accès à la valeur pointée par un pointeur : `*p`
 4. L'accès à l'adresse d'une variable : `&x`
 
-Afin de tester ces différentes fonctionnalités, vous pouvez par exemple compiler le fichier [src.c](src.c).
+> [!TIP]
+> Nous savons que la syntaxe correcte est `tst->name = 4`, mais nous avons
+> implementé `test.num = 4` pour simplicité.
+
+C'est impossible, pourtant, de :
+
+1. Pointeurs vers le double ne marche pas.
+
+```c
+double d_num = 12.34;
+double *ptrDNum;
+ptrDNum = &d_num;
+```
+
+2. Appeller malloc avec un sizeof.
+
+```c
+long *ptrLong;
+ptrLong = malloc(sizeof(long));
+```
+
+3. Double déréférencement
+
+```c
+long **ptrLong;
+```
+
+Afin de tester ces différentes fonctionnalités, vous pouvez par exemple compiler
+le fichier [src.c](src.c).
 
 ## Ce qui n'a pas été implémenté
 
 Ci-dessous, on liste une série de fonctionnalités qui n'ont à cette heure pas encore été implémentées dans notre compilateur.
 
 - les opérations binaires entre structures. Par exemple, même si `p1` et `p2` sont deux `Point`, on ne peut pas encore écrire `p1+p2` pour obtenir le point dont les coordonnées sont les sommes des coordonnées respectives.
-- accéder aux attributs d'une structure imbriquée. Les structures ont été définies de telle sorte à accepter l'imbrication (on peut par exemple définir une structure `Ligne` comme en cours, la déclarer et l'affecter), mais la grammaire ne permet pas encore d'accéder aux attributs des sous-structures (par exemple, on ne peut pas écrire `l.src.x` où `l` est une `Ligne`)
-- 
+- accéder aux attributs d'une structure imbriquée. Les structures ont été définies 
 
 Dans le fichier [fail.c](fail.c), on liste certaines de ces instructions qui ne sont pas encore autorisées avec notre compilateur.
