@@ -43,3 +43,27 @@ fonctionnalité supplémentaire principale :
 | double         | Yuetong  |
 | struct         | Mathis   |
 | pointeurs      | Diogo    |
+
+# Ce qu'il est possible
+### Double
+
+### Types
+
+### Struct
+Pour les structures, nous avons choisi de définir toutes les structures utilisées avant le `main`.
+Chaque structure est alors définie selon le modèle suivant :
+```
+typedef struct {
+    <ATTR1_TYPE> <ATTR1_NAME>;
+    ...
+} <STRUCT_NAME>;
+```
+
+Cela étant fait la structure est utilisable dans le main.
+Dans notre cas, l'utilisation se réalise avec :
+1. une initialisation de l'entité `<STRUCT_NAME> <ENTITY_NAME>;`
+2. l'affectation de ses attributs `<ENTITY_NAME>.<ATTR1_NAME> = ...`
+
+Il est possible de définir une structure dont un ou plusieurs attributs sont eux mêmes des structures. Cependant, il ne sera pas possible d'utiliser ces attributs.
+
+### Pointeurs
