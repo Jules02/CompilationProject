@@ -45,7 +45,8 @@ program: structs_def? IDENTIFIER "main" "(" liste_var ")" "{" bloc "return" "(" 
 %ignore WS
 """, start='program')
 
-
+def mem(var, off):
+    return f'[{var}+{off}]' if off else f'[{var}]'
 
 def get_struct_definitions(p):
     # Reads typedefs in the preamble
@@ -90,31 +91,25 @@ def get_declarations(c):
         return d
     return []
 
-
-###############################################################################################
-            # ASM
-###############################################################################################
-
 op2asm = {'+' : 'add rax, rbx', '-': 'sub rax, rbx'}
 op2asm_double = {'+' : 'addsd xmm0, xmm1', '-': 'subsd xmm0, xmm1'}
 
 def asm_expression(e):
     global double_constants
 
-
-    def push_structure(container_name, var_type, offset) :
-        # Handles nested structures
+    def push_structure(container_name, var_type, offset):
         struct_definition = struct_definitions[var_type]
         a = ""
         for attr in struct_definition["attributes"]:
-            attr_type = struct_definition["attributes"][attr]["type"]
+            attr_type   = struct_definition["attributes"][attr]["type"]
             attr_offset = struct_definition["attributes"][attr]["offset"]
+            off         = offset + attr_offset
             if attr_type == "double":
-                a += f"movsd xmm0+{offset}+{attr_offset}, [{container_name}]+{offset}+{attr_offset}\n"
+                a += f"movsd xmm0, {mem(container_name, off)}\n"
             elif attr_type == "long":
-                a += f"mov rax+{offset}+{attr_offset}, [{container_name}]+{offset}+{attr_offset}\n"
+                a += f"mov rax, {mem(container_name, off)}\n"
             else:
-                a += push_structure(container_name, attr_type, offset+attr_offset)
+                a += push_structure(container_name, attr_type, off)
         return a
 
     if e.data == "var":
@@ -135,12 +130,11 @@ def asm_expression(e):
         var_name = e.children[0].value
         if not symboltable.is_declared(var_name):
             raise ValueError(f"Variable '{var_name}' is not declared.")
-        return f"lea rax, [{var_name}]\n", "long"
+        return f"lea rax, [{var_name}]\n", "long" # load effective address
 
     if e.data == "malloc_call":
-        return """
-mov rdi, 8
-call malloc\n""", "long"
+        return """mov rdi, 8
+call malloc""", "long" # always load 8 bytes.
 
     if e.data == "number":
         return f"mov rax, {e.children[0].value}", "long"
@@ -210,21 +204,20 @@ def asm_bloc(b):
 
 def asm_commande(c):
 
-    def affect(var_type, var_name, offset) :
-        # The method is recursive for handling nested structures
+    def affect(var_type, var_name, offset):
         if var_type == "double":
-            return f"movsd [{var_name}]+{offset}, xmm0+{offset}\n"
+            return f"movsd {mem(var_name, offset)}, xmm0\n"
         elif var_type == "long":
-            return f"mov [{var_name}]+{offset}, rax+{offset}\n"
+            return f"mov   {mem(var_name, offset)}, rax\n"
         else:
-            # Variable is a structure
             a = ""
             struct_definition = struct_definitions[var_type]
             for attr in struct_definition["attributes"]:
-                attr_type = struct_definition["attributes"][attr]["type"]
+                attr_type   = struct_definition["attributes"][attr]["type"]
                 attr_offset = struct_definition["attributes"][attr]["offset"]
                 a += affect(attr_type, var_name, offset + attr_offset)
             return a
+
 
     if c.data == "affectation":
         var_name = c.children[0].value
@@ -237,10 +230,6 @@ def asm_commande(c):
         # TODO: handle case when typ is not var_type
         symboltable.initialize(var_name)
         return code + "\n" + affect(var_type, var_name, 0)
-
-    if c.data == "decl_cmd":
-        # All declarations were already made
-        return ""
 
     if c.data == "declpuisinit_cmd":
         # Variable was already declared, we just need to initialize it
@@ -275,14 +264,17 @@ end{idx}: nop"""
             return f"""{code}
 cmp rax, 0
 jz else{idx}
-{asm_bloc(body_if)}jmp endif{idx}
+{asm_bloc(body_if)}
+jmp endif{idx}
 else{idx}: 
-{asm_bloc(body_else)}endif{idx}: nop"""
+{asm_bloc(body_else)}
+endif{idx}: nop"""
         else:
             return f"""{code}
 cmp rax, 0
 jz endif{idx}
-{asm_bloc(body_if)}endif{idx}: nop"""
+{asm_bloc(body_if)}
+endif{idx}: nop"""
 
     if c.data == "print":
         exp = c.children[0]
@@ -331,31 +323,29 @@ mov [{var_name}], rax
 """
     else:
 
-        def affect_init(var_type, var_name, offset) :
-            # Similar to asm_commande.affect, recursive for nested structures
+        def affect_init(var_type, var_name, offset):
             if var_type == "double":
                 return f"""mov rbx, [argv]
-mov rdi, [rbx + {offset}]
+mov rdi, [rbx + {position + offset}]
 call atof
-movsd [{var_name}]+{offset}, xmm0
+movsd {mem(var_name, offset)}, xmm0
 """
             elif var_type == "long":
                 return f"""mov rbx, [argv]
-mov rdi, [rbx + {offset}]
+mov rdi, [rbx + {position + offset}]
 call atoi
-mov [{var_name}]+{offset}, rax
+mov   {mem(var_name, offset)}, rax
 """
             else:
-                # Variable is a structure
                 a = ""
                 struct_definition = struct_definitions[var_type]
                 for attr in struct_definition["attributes"]:
-                    attr_type = struct_definition["attributes"][attr]["type"]
+                    attr_type   = struct_definition["attributes"][attr]["type"]
                     attr_offset = struct_definition["attributes"][attr]["offset"]
                     a += affect_init(attr_type, var_name, offset + attr_offset)
                 return a
 
-        initialization += affect_init(type, var_name, position)
+        initialization += affect_init(type, var_name, 0)
         position += struct_definitions[type]["size"]
     return initialization
 
@@ -424,13 +414,10 @@ def asm_program(p):
 
 
 
-###############################################################################################
-            # main
-###############################################################################################
-
 if __name__ == "__main__":
     with open("src.c", encoding="utf-8") as f:
         src = f.read()
     raiseWarnings = True
     ast = g.parse(src)
-    print(asm_program(ast))
+    print(ast.pretty())
+    #print(asm_program(ast))

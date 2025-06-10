@@ -8,6 +8,7 @@ C: dq 0
 p: dq 0, 0
 ptrA: dq 0
 buffer: dq 0
+ptrB: dq 0
 sum: dq 0
 sub: dq 0
 
