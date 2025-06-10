@@ -20,11 +20,12 @@ OPBIN: /[+\\-]/
 DOUBLE: /[0-9]*\\.[0-9]+([eE][+-]?[0-9]+)?/
 declaration: IDENTIFIER ("*")? IDENTIFIER            -> declaration
 one_struct_def: "typedef" "struct" "{" (declaration ";")+ "}" IDENTIFIER ";" -> one_struct_def
-structs_def  : (one_struct_def)*                                            -> structs_def
+structs_def  : (one_struct_def)*                                             -> structs_def
 liste_var:                                         -> vide
          | declaration ("," declaration)*          -> vars
 expression: IDENTIFIER                             -> var
           | "&" IDENTIFIER                         -> addr_of
+          | IDENTIFIER"."IDENTIFIER                -> struct_attr_use
           | "malloc" "(" ")"                       -> malloc_call
           | expression OPBIN expression            -> opbin
           | NUMBER                                 -> number
@@ -127,6 +128,12 @@ call malloc\n""","long"
         if typ == "long":
             return f"{code}\ncvtsi2sd xmm0, rax", "double"
         return code, "double"
+    
+    if e.data == "struct_attr_use":
+        struct = e.children[0]
+        attr = e.children[1]
+        
+        
 
     if e.data == "opbin":
         left_code, left_type = asm_expression(e.children[0])
@@ -317,4 +324,5 @@ if __name__ == "__main__":
         src = f.read()
     raiseWarnings = True
     ast = g.parse(src)
+    print(pp_programme(ast))
     print(asm_program(ast))

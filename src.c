@@ -1,5 +1,17 @@
+typedef struct {
+    long x;
+    long y;
+}Point;
+
+typedef struct {
+    long p1;
+    long p2;
+}Ligne;
+
 long main(long A, long B, long C)
 {
+    Point p;
+    
     long *ptrA;
     ptrA = &A;
 
