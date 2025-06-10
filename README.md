@@ -116,6 +116,33 @@ Il est possible de définir une structure dont un ou plusieurs attributs sont eu
 mêmes des structures. Cependant, il ne sera pas possible d'utiliser ces
 attributs.
 
+> [!TIP]
+> Nous savons que la syntaxe correcte est `tst->name = 4`, mais nous avons
+> implementé `test.num = 4` pour simplicité.
+
+C'est impossible, pourtant, de :
+
+1. Pointeurs vers le double ne marche pas.
+
+```c
+double d_num = 12.34;
+double *ptrDNum;
+ptrDNum = &d_num;
+```
+
+2. Appeller malloc avec un sizeof.
+
+```c
+long *ptrLong;
+ptrLong = malloc(sizeof(long));
+```
+
+3. Double déréférencement
+
+```c
+long **ptrLong;
+```
+
 ### Pointeurs
 
 Il y a quatre syntax importantes à retenir pour les pointeurs :
