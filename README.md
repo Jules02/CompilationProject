@@ -61,8 +61,9 @@ typedef struct {
 
 Cela étant fait la structure est utilisable dans le main.
 Dans notre cas, l'utilisation se réalise avec :
-1. une initialisation de l'entité `<STRUCT_NAME> <ENTITY_NAME>;`
+1. l'initialisation de l'entité `<STRUCT_NAME> <ENTITY_NAME>;`
 2. l'affectation de ses attributs `<ENTITY_NAME>.<ATTR1_NAME> = ...`
+3. l'accès à la valeur de ses attributs `<ENTITY_NAME>.<ATTR1_NAME>`
 
 Il est possible de définir une structure dont un ou plusieurs attributs sont eux mêmes des structures. Cependant, il ne sera pas possible d'utiliser ces attributs.
 
