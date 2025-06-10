@@ -61,9 +61,9 @@ double Y = 3.0;
 double Z = Y + (double) X;
 ```
 
-Des conversions _implicites_ ont aussi été implémentées. Dans l'exemple précédent, `double Z = Y + X` marcherait aussi; le type de X serait implicitement converti vers `double`, et un _warning_ serait affiché si l'option `raiseWarnings` vaut `True`.
+Des conversions _implicites_ ont aussi été implémentées. Dans l'exemple précédent, `double Z = Y + X` marcherait aussi; le type de X serait implicitement converti vers `double`, et un _warning_ serait affiché levé.
 
-La fonction `main`présente un type de retour, qui pour l'instant ne peut être qu'un `long` ou un `double` (et pas une structure). Si besoin, une conversion implicite `double` vers `long` ou inversement est parfois réalisée, affichant là encore un _warning_ si l'option `raiseWarnings` est à `True`.
+La fonction `main`présente un type de retour, qui pour l'instant ne peut être qu'un `long` ou un `double` (et pas une structure). Si besoin, une conversion implicite `double` vers `long` ou inversement est parfois réalisée, levant là encore un _warning_.
 
 
 ### Struct
