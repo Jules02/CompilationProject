@@ -206,7 +206,7 @@ pop rax
         code = ""
         if left_type == "long":
             code += f"{left_code}\ncvtsi2sd xmm0, rax\n"
-            if raiseWarnings: print("Implicitly converting long to double")
+            raise Warning("Implicitly converting long to double")
         else:
             code += f"{left_code}\n"
             
@@ -214,7 +214,7 @@ pop rax
         
         if right_type == "long":
             code += f"{right_code}\ncvtsi2sd xmm1, rax\n"
-            if raiseWarnings: print("Implicitly converting long to double")
+            raise Warning("Implicitly converting long to double")
         else:
             code += f"{right_code}\nmovsd xmm1, xmm0\n"
         

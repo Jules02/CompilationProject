@@ -123,33 +123,6 @@ Il y a quatre syntax importantes à retenir pour les pointeurs :
 3. L'accès à la valeur pointée par un pointeur : `*p`
 4. L'accès à l'adresse d'une variable : `&x`
 
-> [!TIP]
-> Nous savons que la syntaxe correcte est `tst->name = 4`, mais nous avons
-> implementé `test.num = 4` pour simplicité.
-
-C'est impossible, pourtant, de :
-
-1. Pointeurs vers le double ne marche pas.
-
-```c
-double d_num = 12.34;
-double *ptrDNum;
-ptrDNum = &d_num;
-```
-
-2. Appeller malloc avec un sizeof.
-
-```c
-long *ptrLong;
-ptrLong = malloc(sizeof(long));
-```
-
-3. Double déréférencement
-
-```c
-long **ptrLong;
-```
-
 Afin de tester ces différentes fonctionnalités, vous pouvez par exemple compiler
 le fichier [src.c](src.c).
 
@@ -158,6 +131,23 @@ le fichier [src.c](src.c).
 Ci-dessous, on liste une série de fonctionnalités qui n'ont à cette heure pas encore été implémentées dans notre compilateur.
 
 - les opérations binaires entre structures. Par exemple, même si `p1` et `p2` sont deux `Point`, on ne peut pas encore écrire `p1+p2` pour obtenir le point dont les coordonnées sont les sommes des coordonnées respectives.
-- accéder aux attributs d'une structure imbriquée. Les structures ont été définies 
+- les structures ont été définies de telle sorte à accepter l'imbrication (on peut par exemple définir une structure `Ligne` comme en cours, la déclarer et l'affecter), mais la grammaire ne permet pas encore d'accéder aux attributs des sous-structures (par exemple, on ne peut pas écrire `l.src.x` où `l` est une `Ligne`)
+- la syntaxe `p->x`, où `p` est une structure avec un attribut `x`. On a privilégié la syntaxe `p.x`.
+- avec les pointeurs:
+  - les pointeurs de `double` ne fonctionnent pas:
+    ```c
+    double d_num = 12.34;
+    double *ptrDNum;
+    ptrDNum = &d_num;
+    ```
+  - on ne peut pas appeler `malloc` avec un sizeof:
+    ```c
+    long *ptrLong;
+    ptrLong = malloc(sizeof(long));
+    ```
+  - le double déréférencement n'est pas possible:
+    ```c
+    long **ptrLong;
+    ```
 
-Dans le fichier [fail.c](fail.c), on liste certaines de ces instructions qui ne sont pas encore autorisées avec notre compilateur.
+Dans le fichier [fail.c](fail.c), on liste certaines de ces instructions qui ne sont pas encore autorisées avec notre compilateur, avec des commentaires.
