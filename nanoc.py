@@ -11,24 +11,26 @@ PRIMITIVE_TYPES = { "long" : 8, "double" : 8 }
 struct_definitions = {}
 
 double_constants = {}
+raiseWarnings = False
 
 g = Lark("""
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/|"0"
 OPBIN: /[+\\-]/
 DOUBLE: /[0-9]*\\.[0-9]+([eE][+-]?[0-9]+)?/
-declaration: IDENTIFIER ("*")? IDENTIFIER                                   -> declaration
-one_struct_def: "typedef" "struct" "{" (declaration ";")+ "}" IDENTIFIER ";"-> one_struct_def
+COMMENT: /\\/\\/[^\\n]*/
+declaration: IDENTIFIER ("*")? IDENTIFIER            -> declaration
+one_struct_def: "typedef" "struct" "{" (declaration ";")+ "}" IDENTIFIER ";" -> one_struct_def
 structs_def  : (one_struct_def)*                                            -> structs_def
-liste_var:                                                                  -> vide
-         | declaration ("," declaration)*                                   -> vars
-expression: IDENTIFIER "." IDENTIFIER                                       -> struct_attr_use
-          | IDENTIFIER                                                      -> var
-          | "&" IDENTIFIER                                                  -> addr_of
-          | "*" IDENTIFIER                                                  -> dereference
-          | "malloc" "(" ")"                                                -> malloc_call
-          | expression OPBIN expression                                     -> opbin
-          | NUMBER                                                          -> number
+liste_var:                                         -> vide
+         | declaration ("," declaration)*          -> vars
+expression: IDENTIFIER "." IDENTIFIER              -> struct_attr_use
+          | IDENTIFIER                             -> var
+          | "&" IDENTIFIER                         -> addr_of
+          | "*" IDENTIFIER                         -> dereference
+          | "malloc" "(" ")"                       -> malloc_call
+          | expression OPBIN expression            -> opbin
+          | NUMBER                                 -> number
           | DOUBLE                                                          -> double
           | "(" "double" ")" expression                                     -> cast_double
 commande: IDENTIFIER "." IDENTIFIER "=" expression ";"                      -> struct_attr_affect
@@ -43,6 +45,7 @@ bloc: (commande)*                                                           -> b
 program: structs_def? IDENTIFIER "main" "(" liste_var ")" "{" bloc "return" "(" expression ")" ";" "}"
 %import common.WS
 %ignore WS
+%ignore COMMENT
 """, start='program')
 
 def mem(var, off):
@@ -204,12 +207,12 @@ pop rax
         code = ""
         if left_type == "long":
             code += f"{left_code}\ncvtsi2sd xmm1, rax\n"
-            raise Warning("Implicitly converting long to double")
+            if raiseWarnings: print("Implicitly converting long to double")
         else:
             code += f"{left_code}\nmovsd xmm1, xmm0\n"
         if right_type == "long":
             code += f"{right_code}\ncvtsi2sd xmm0, rax\n"
-            raise Warning("Implicitly converting long to double")
+            if raiseWarnings: print("Implicitly converting long to double")
         else:
             code += right_code + "\n"
         code += f"\n{op2asm_double[op]}"
@@ -241,8 +244,8 @@ def asm_commande(c):
         if not symboltable.is_declared(var_name):
             raise ValueError(f"Trying to affect a value to {var_name}, which was not declared. Ignoring.")
         var_type = symboltable.get_type(var_name)
-        if var_type != typ:
-            raise Warning(f"Affecting a {typ} to a {var_type}, behavior may be undesired.")
+        if raiseWarnings and var_type != typ:
+            print(f"Affecting a {typ} to a {var_type}, behavior may be undesired.")
         symboltable.initialize(var_name)
         return code + "\n" + affect(var_type, var_name, 0)
 
@@ -271,8 +274,8 @@ def asm_commande(c):
         var_name = declaration.children[-1].value
         exp = c.children[1]
         code, typ = asm_expression(exp)
-        if var_type != typ:
-            raise Warning(f"Affecting a {typ} to a {var_type}, behavior may be undesired.")
+        if raiseWarnings and var_type != typ:
+            print(f"Affecting a {typ} to a {var_type}, behavior may be undesired.")
         return code + "\n" + affect(var_type, var_name, 0)
 
     if c.data == "while":
@@ -402,7 +405,7 @@ def asm_program(p):
         type      = c.children[0].value
         var_name  = c.children[-1].value
         if type not in (PRIMITIVE_TYPES.keys() | struct_definitions.keys()):
-            raise Warning(f"Variable {var_name} declared with invalid type, ignoring it")
+            if raiseWarnings: (print(f"Variable {var_name} declared with invalid type, ignoring it"))
         else:
             # Declaration
             decl_vars += asm_declaration(var_name, type)
@@ -420,7 +423,7 @@ def asm_program(p):
         type = d.children[0].value
         var_name = d.children[-1].value
         if type not in (PRIMITIVE_TYPES.keys() | struct_definitions.keys()):
-            raise Warning(f"Variable {var_name} declared with invalid type, ignoring it")
+            if raiseWarnings: (print(f"Variable {var_name} declared with invalid type, ignoring it"))
         else:
             if not symboltable.is_declared(var_name):
                 decl_vars += asm_declaration(var_name, type)
@@ -450,7 +453,8 @@ def asm_program(p):
 
 
 if __name__ == "__main__":
-    with open("src.c", encoding="utf-8") as f:
+    with open("pointers.c", encoding="utf-8") as f:
         src = f.read()
+    raiseWarnings = True
     ast = g.parse(src)
     print(asm_program(ast))

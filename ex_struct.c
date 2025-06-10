@@ -3,11 +3,6 @@ typedef struct {
     double y;
 } Point;
 
-typedef struct {
-    Point src;
-    Point trgt;
-} Line;
-
 long main () {
     Point p;
     p.x = 4;
