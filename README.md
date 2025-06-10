@@ -50,7 +50,7 @@ Vous trouverez ci-dessous un tableau détaillant qui s'est vu attribuer quelle f
 À cette heure, et au-delà des fonctionnalités de base implémentées en classe,
 nous avons implémenté les fonctionnalités suivantes :
 
-### double
+### Double
 
 Notre compilateur prend en charge le type `double` pour les nombres à virgule
 flottante en double précision. Les constantes de type double sont reconnues, y
