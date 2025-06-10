@@ -90,9 +90,6 @@ def get_declarations(c):
     return []
 
 
-###############################################################################################
-            # ASM
-###############################################################################################
 
 op2asm = {'+' : 'add rax, rbx', '-': 'sub rax, rbx'}
 op2asm_double = {'+' : 'addsd xmm0, xmm1', '-': 'subsd xmm0, xmm1'}
@@ -142,7 +139,7 @@ mov rdi, 8
 call malloc\n""", "long"
 
     if e.data == "number":
-        return f"mov rax, {e.children[0].value}", "long"
+        return f"mov rax, {e.children[0].value}\n", "long"
 
     if e.data == "double":
         val = e.children[0].value
@@ -405,10 +402,6 @@ def asm_program(p):
     return prog_asm
 
 
-
-###############################################################################################
-            # main
-###############################################################################################
 
 if __name__ == "__main__":
     with open("src.c", encoding="utf-8") as f:
